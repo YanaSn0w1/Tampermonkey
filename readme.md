@@ -55,5 +55,7 @@
 - 1.12 added: Generate with AI toggle.
 - 1.13 added: Removed AI. Added more modes and closers. Default Hype.
 - 1.14 fixed: Now does 12 hour and 24 hour formats.
+- 1.15 added: Paragraphing, 0 to 2 emoji doesn't work. GM no emoji causes to click wrong thing then wont post again till GM with emoji?
+- 1.15 needs better opener closer closer 2 that is more than 1 word
 
 # [PayPal-Donations](https://www.paypal.com/donate/?hosted_button_id=9LWWH273HEVC4 "Donate to YanaHeat") ⬅️
