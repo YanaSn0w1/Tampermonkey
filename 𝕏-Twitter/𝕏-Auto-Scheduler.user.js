@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name         𝕏-Auto-Scheduler
+// @name         X-Auto-Scheduler
 // @namespace    http://tampermonkey.net/
-// @version      1.14
-// @description  Auto-Scheduler for 𝕏.
+// @version      1.17
+// @description  Auto-Scheduler for X.
 // @author       YanaHeat
-// @match        https://x.com/YanaHeat
-// @match        https://x.com/compose/post*
+// @match        https://x.com/*
+// @match        https://x.com/compose*
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_deleteValue
@@ -40,19 +40,20 @@
 
     const modes = {
         'Flirty': {
-            closers: [
+            phrases: [
                 "Babe", "Hun", "Darling", "Sweetheart", "Honey", "Baby", "Sweetie", "Angel", "Beautiful",
                 "Dear", "Beloved", "Sunshine", "Cupcake", "Pumpkin", "Buttercup", "Cherub", "Boo", "Bae",
                 "My Love", "Bunny", "Lovey", "Sugar", "Sweetpea", "Poppet", "Princess", "Cutie",
                 "Gorgeous", "Muffin", "Hun"
             ],
-            morningEmojis: ["💕", "❤", "😘", "😍", "🌹", "😽", "💋", "🥰", "💖", "😊"],
+            closers: ["xoxo", "kisses", "yours", "love", "dear", "hugs", "sweetie", "darling", "babe", "hun"],
+            morningEmojis: ["💕", "❤️", "😘", "😍", "🌹", "😊", "💋", "🥰", "💖", "😊"],
             afternoonEmojis: ["🔥", "💦", "😎", "💋", "🌹", "😘", "💖", "🥰", "😍", "🌞"],
             eveningNightEmojis: ["🌙", "💋", "🥂", "😘", "💖", "🥰", "🌌", "⭐", "🤍", "😍"]
         },
 
         'Boost': {
-            closers: [
+            phrases: [
                 "Just say Hello. Gain 59+ Grinders",
                 "Just say Hi. Gain 39 +",
                 "Drop a reply. Gain 101 + Actives",
@@ -78,7 +79,6 @@
                 "Keep on crankin' massive gains.",
                 "If you see this, kindly repost.",
 
-                // additions, same vibe
                 "Drop a Hi, gain 77+ actives",
                 "Active crew, check in",
                 "Let’s run gains today",
@@ -100,18 +100,18 @@
                 "Steady gains all day",
                 "Boost mode activated"
             ],
+            closers: ["fam", "crew", "squad", "grinders", "actives", "team", "legends", "boosters", "gains", "network"],
             morningEmojis: ["🚀", "💪", "🚂", "☕", "💚", "🌟", "⚡", "🔥", "✅", "🏆"],
             afternoonEmojis: ["💥", "⚡", "🚀", "🔥", "🏆", "💪", "👍", "✅", "🎉", "🤩"],
             eveningNightEmojis: ["👍", "⭐", "💎", "🏆", "✅", "💪", "🌌", "✨", "🥇", "🔥"]
         },
 
         'Crypto': {
-            closers: [
+            phrases: [
                 "Builders", "Peeps", "Fam", "Frens", "Fren", "Crew", "Squad", "Tribe", "Network",
                 "Allies", "Partners", "Supporters", "Connections", "Circle", "Group", "Let's network",
                 "Connect with me", "Let's engage", "Whats the ticker?",
 
-                // additions, same lane, no “tag your dev”
                 "Drop your ticker",
                 "Share your alpha",
                 "Who’s building today?",
@@ -123,18 +123,18 @@
                 "Roll call for builders",
                 "Any new projects today?"
             ],
+            closers: ["fren", "fam", "builders", "degens", "hodlers", "traders", "web3", "onchain", "crypto", "alpha"],
             morningEmojis: ["💰", "📈", "🚀", "💎", "🪙", "🌅", "☕", "✨", "🔥", "⚡"],
             afternoonEmojis: ["💥", "📊", "🚀", "💰", "🪙", "💎", "🌞", "🔥", "⚡", "📈"],
             eveningNightEmojis: ["🌙", "💎", "📈", "💰", "🪙", "🌌", "⭐", "🚀", "🔥", "✨"]
         },
 
         'Pro': {
-            closers: [
+            phrases: [
                 "Everyone", "Friends", "Friend", "Colleagues", "Team", "Community", "Partners", "Network",
                 "Let's connect", "Drop a hi", "Say hello", "Follow along", "Let's vibe", "Let's chat",
                 "Hit reply", "Tag a friend", "Reply below",
 
-                // additions, same tone
                 "Share your thoughts",
                 "Join the conversation",
                 "Let’s keep learning",
@@ -145,45 +145,73 @@
                 "Chime in",
                 "Your turn"
             ],
+            closers: ["everyone", "friends", "fam", "team", "world", "all", "you", "folks", "peeps", "crew"],
             morningEmojis: ["☕", "🌅", "😊", "🌻", "✨", "🌟", "🙏", "🌞", "🕊️", "🌈"],
             afternoonEmojis: ["🌤️", "🕒", "🍽️", "😎", "🌳", "☀️", "⚡", "🌈", "💥", "🌬️"],
-            eveningNightEmojis: ["🌙", "💎", "📈", "🌆", "✨", "🌌", "⭐", "🤍", "🥰", "🦉"]
+            eveningNightEmojis: ["🌙", "💎", "📈", "🌆", "✨", "🌌", "⭐", "🤍", "🥰", "🌉"]
         },
 
         'Cute': {
-            closers: [
+            phrases: [
                 "Little bean", "Tiny panda", "Sweet bunny", "Happy puppy", "Sleepy kitten",
                 "Tiny sprout", "Soft peach", "Berry sweet", "Sweet muffin", "Cookie crumb",
                 "Cherry drop", "Petal heart", "Poppy bloom", "Daisy face", "Lucky clover",
                 "Soft sparkle", "Little bubble", "Tiny nugget", "Cute button", "Shining star"
             ],
+            closers: ["aww", "cutie", "sweetie", "adorable", "precious", "tiny", "fluffy", "bubbly", "sparkly", "happy"],
             morningEmojis: ["🌸", "🐣", "☀️", "🐻", "🐰", "🍓", "😊", "🌼", "✨", "🧸"],
             afternoonEmojis: ["🌤️", "🐱", "🐶", "🍉", "🍪", "🌈", "😄", "🫧", "💖", "🌻"],
             eveningNightEmojis: ["🌙", "🧸", "⭐", "🌌", "🐱", "🐰", "💤", "✨", "🤍", "🌟"]
         },
 
         'Zen': {
-            closers: [
+            phrases: [
                 "Stay calm", "Stay soft", "Breathe easy", "Find your center", "Stay grounded",
                 "Move gently", "Stay present", "Keep it light", "Soft focus", "Quiet mind",
                 "Gentle pace", "Slow and steady", "Calm energy", "Soft landing", "Peaceful night",
                 "Easy morning", "Soft reset", "Quiet moment", "Steady heart", "Calm and clear"
             ],
+            closers: ["peace", "zen", "breathe", "flow", "balance", "serene", "calm", "gentle", "present", "grounded"],
             morningEmojis: ["🌅", "☕", "🧘", "🍃", "🌿", "🌞", "🕊️", "💧", "✨", "🌻"],
             afternoonEmojis: ["🌤️", "🍃", "🌳", "🧘", "💭", "☀️", "🌈", "💧", "✨", "😌"],
             eveningNightEmojis: ["🌙", "🧘", "🌌", "⭐", "🕯️", "💤", "🍃", "🤍", "✨", "🌊"]
         },
 
         'Hype': {
-            closers: [
+            phrases: [
                 "Full send", "Big energy", "We go again", "Run it up", "Locked in",
                 "All gas", "No brakes", "Max volume", "Turn it up", "We move",
                 "No limits", "All in", "Let’s cook", "Turn the dial", "Push the line",
                 "No slowing down", "Keep it rolling", "Stay loud", "Stay winning", "We’re live"
             ],
+            closers: ["let's go", "no cap", "vibes", "energy", "hype", "win", "grind", "push", "move", "live"],
             morningEmojis: ["⚡", "🔥", "🚀", "🌞", "💪", "🏁", "🎧", "🌟", "✅", "🏆"],
             afternoonEmojis: ["💥", "🔥", "🚀", "⚡", "😎", "🏆", "🎉", "📈", "🤘", "⭐"],
             eveningNightEmojis: ["🌙", "🔥", "🌌", "⭐", "⚡", "🏆", "🎇", "🎆", "💣", "🚀"]
+        },
+
+        'Sports': {
+            phrases: [
+                "Game day", "All I do is win", "Winners never quit", "Refuse to lose", "Dream big work harder",
+                "Hard days make champions", "Let's get ready to rumble", "Whatever it takes", "Fast and furious",
+                "Born to win", "No excuses", "Push limits", "Team strong", "Victory mode", "Rise and grind",
+                "Champions mindset", "Go hard or go home", "Unstoppable force", "Dominate the field", "Epic comeback"
+            ],
+            closers: ["team", "champ", "victory", "grind", "hustle", "win", "play", "score", "dominate", "legend"],
+            morningEmojis: ["⚽", "🏀", "🏈", "⚾", "🎾", "🏆", "🥇", "🔥", "⚡", "💪", "🏒", "🥅", "🏁", "👟", "☕"],
+            afternoonEmojis: ["⚽", "🏀", "🏈", "⚾", "🎾", "🏆", "🥇", "🔥", "⚡", "💪", "🏒", "🥅", "🏁", "👟", "☀️"],
+            eveningNightEmojis: ["⚽", "🏀", "🏈", "⚾", "🎾", "🏆", "🥇", "🔥", "⚡", "💪", "🏒", "🥅", "🏁", "👟", "⭐"]
+        },
+
+        'Greetings': {
+            phrases: [
+                "Have an amazing day", "Stay positive", "Rise and shine", "Make it count", "Embrace the day",
+                "Keep smiling", "Be kind", "Chase dreams", "Enjoy the moment", "Spread joy"
+            ],
+            closers: ["Stay Blessed", "You got this", "Keep going", "All the best", "Shine bright", "Be awesome", "Stay strong", "Have fun", "Peace out", "Take care"],
+            morningEmojis: ["☕", "🌅", "😊", "🌻", "✨", "🌟", "🙏", "🌞", "🕊️", "🌈"],
+            afternoonEmojis: ["🌤️", "🕒", "🍽️", "😎", "🌳", "☀️", "⚡", "🌈", "💥", "🌬️"],
+            eveningNightEmojis: ["🌙", "💎", "📈", "🌆", "✨", "🌌", "⭐", "🤍", "🥰", "🌉"]
         }
     };
 
@@ -192,43 +220,37 @@
             closersExtras: ["Legend", "Love"],
             morningEmojisExtras: ["🖌️", "🦁"],
             afternoonEmojisExtras: ["🪭", "💬"],
-            eveningNightEmojisExtras: ["🐐", "🕔"],
-            timezoneOffset: -3
+            eveningNightEmojisExtras: ["🐐", "🕔"]
         },
         'YanaSn0w1': {
             closersExtras: ["Legend", "Love"],
             morningEmojisExtras: ["🎨", "🌞"],
             afternoonEmojisExtras: ["⚡", "🌈"],
-            eveningNightEmojisExtras: ["🌌", "🥰"],
-            timezoneOffset: -3
+            eveningNightEmojisExtras: ["🌌", "🥰"]
         },
         'YanaFan01': {
             closersExtras: ["Legend", "Love"],
             morningEmojisExtras: ["🫶🏻", "🍑", "🌮"],
             afternoonEmojisExtras: ["🌻", "💦", "🐪"],
-            eveningNightEmojisExtras: ["🌆", "✨", "🍸"],
-            timezoneOffset: -3
+            eveningNightEmojisExtras: ["🌆", "✨", "🍸"]
         },
         'YanaFan02': {
             closersExtras: ["Legend"],
             morningEmojisExtras: ["⚔️", "😊", "🌐"],
             afternoonEmojisExtras: ["🤔", "🎉", "💬"],
-            eveningNightEmojisExtras: ["💜", "🙏", "🏆"],
-            timezoneOffset: -3
+            eveningNightEmojisExtras: ["💜", "🙏", "🏆"]
         },
         'YanaFan03': {
             closersExtras: ["Legend"],
             morningEmojisExtras: ["🌅", "🌞", "😘"],
             afternoonEmojisExtras: ["😍", "❤️", "🌅"],
-            eveningNightEmojisExtras: ["🌆", "🌉", "🌙"],
-            timezoneOffset: -3
+            eveningNightEmojisExtras: ["🌆", "🌉", "🌙"]
         },
         'YanaFan04': {
             closersExtras: ["Legend"],
             morningEmojisExtras: ["🌅", "🌞", "😘"],
             afternoonEmojisExtras: ["😍", "❤️", "🌅"],
-            eveningNightEmojisExtras: ["🌆", "🌉", "🌙"],
-            timezoneOffset: -3
+            eveningNightEmojisExtras: ["🌆", "🌉", "🌙"]
         }
         // Add more accounts here as needed
     };
@@ -252,25 +274,23 @@
         gaGreetings: ["Good afternoon", "GA", "Can I get a GA?"],
         geGreetings: ["Good evening", "GE", "Can I get a GE?"],
         gnGreetings: ["Good night", "GN", "Can I get a GN?"],
-        closers: ["fam", "legend", "babe", "everyone", "friends", "crew", "squad", "darling", "champ", "baby", "unc", "bro", "mate", "hun", "dear", "Love", "Sweetheart", "Honey", "Sweetie", "Angel", "Beautiful", "Dear", "Beloved", "Sunshine", "Cupcake", "Pumpkin", "Buttercup", "Cherub", "Boo", "Bae", "My Everything", "Bunny", "Lovey", "Sugar", "Sweetpea", "Poppet", "Princess", "Cutie", "Gorgeous", "Muffin", "Bear", "Pet"],
-        morningEmojis: ["🌹", "😽", "☕", "🌅", "😊", "🌻", "✨", "💕", "❤", "🖌️", "🦁", "🙏", "🌞", "🍳", "🕊️", "🌈", "💐", "🦋", "🌟", "🎨"],
-        afternoonEmojis: ["⚡", "💖", "🚀", "🌈", "🥳", "🔥", "🍀", "🌤️", "🕒", "🍽️", "😎", "🌳", "☀️", "💥", "🌬️", "🕑", "🌇", "🍹", "🏞️", "🌅"],
-        eveningNightEmojis: ["🕸️", "🥰", "⭐", "🤍", "🌙", "😘", "💫", "🌆", "✨", "🌌", "🦉", "🌃", "🕯️", "🌠", "🛌", "😴", "🌛", "🦇", "🎆", "🌑"],
         maxEmojis: 'random',
         regenerateOnAuto: true,
+        includePhrases: true,
+        paragraphFormat: true,
         messages: []
     };
 
     const resolvedAccountConfig = getAccountConfig(currentUsername);
-    const timezoneOffset = resolvedAccountConfig.timezoneOffset || 0;
 
     let mode = GM_getValue(storagePrefix + 'mode', defaults.mode);
+    let phrases = modes[mode].phrases.concat(resolvedAccountConfig.phrasesExtras || []);
     let closers = modes[mode].closers.concat(resolvedAccountConfig.closersExtras || []);
     let morningEmojis = modes[mode].morningEmojis.concat(resolvedAccountConfig.morningEmojisExtras || []);
     let afternoonEmojis = modes[mode].afternoonEmojis.concat(resolvedAccountConfig.afternoonEmojisExtras || []);
     let eveningNightEmojis = modes[mode].eveningNightEmojis.concat(resolvedAccountConfig.eveningNightEmojisExtras || []);
 
-    function waitForElement(selector, timeout = 5000) {
+    function waitForElement(selector, timeout = 10000) {
         return new Promise((resolve, reject) => {
             const start = Date.now();
             const interval = setInterval(() => {
@@ -292,6 +312,7 @@
 
         editor.focus();
 
+        // Clear editor deterministically with retries
         let tries = 0;
         while (editor.textContent.trim() && tries < 3) {
             document.execCommand('selectAll', false, null);
@@ -300,15 +321,25 @@
             tries++;
         }
 
-        document.execCommand('insertText', false, text);
+        // Trigger real paste event without writing to clipboard
+        const pasteEvent = new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: new DataTransfer()
+        });
+        pasteEvent.clipboardData.setData("text/plain", text);
 
-        await wait(600);
-        const inserted = editor.textContent.includes(text.slice(0, Math.min(3, text.length)));
+        editor.dispatchEvent(pasteEvent);
 
         editor.dispatchEvent(new Event('input', { bubbles: true }));
         editor.dispatchEvent(new Event('change', { bubbles: true }));
-        editor.dispatchEvent(new Event('keydown', { bubbles: true }));
-        editor.dispatchEvent(new Event('keyup', { bubbles: true }));
+        editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+        editor.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+
+        await wait(600);
+
+        // Verify insertion
+        const inserted = editor.textContent.includes(text.slice(0, Math.min(3, text.length)));
 
         editor.blur();
 
@@ -340,12 +371,8 @@
         let start = new Date(`${startDateStr}T${startTimeStr}:00`);
         if (isNaN(start.getTime())) return [];
 
-        // Apply timezone offset to the start time
-        start.setTime(start.getTime() + timezoneOffset * 60 * 60 * 1000);
-
         const now = new Date();
         const bufferMs = 10 * 60 * 1000; // 10 minutes buffer
-        // If the adjusted start is in the past, bump the entire schedule by 24 hours
         if (start.getTime() < now.getTime() + bufferMs) {
             start.setTime(start.getTime() + 24 * 60 * 60 * 1000);
         }
@@ -403,7 +430,6 @@
                     }
                 });
                 if (!monthSelect || !daySelect || !yearSelect) {
-                    // Fallback to assumed order: month, day, year
                     monthSelect = dateSelects[0];
                     daySelect = dateSelects[1];
                     yearSelect = dateSelects[2];
@@ -442,7 +468,6 @@
             });
 
             if (ampmSelect) {
-                // 12-hour format
                 let hour12 = hour % 12;
                 if (hour12 === 0) hour12 = 12;
                 const hour12Str = hour12.toString();
@@ -464,7 +489,6 @@
                     await wait(200);
                 }
             } else {
-                // 24-hour format
                 const hour24Str = hour.toString();
 
                 if (hourSelect) {
@@ -492,7 +516,7 @@
                 return false;
             }
 
-            await wait(500);
+            await wait(1000);
 
             const scheduleButton = await waitForElement('[data-testid="tweetButton"]:not([disabled])');
             scheduleButton.click();
@@ -511,17 +535,14 @@
         try {
             await closeModal();
 
-            // Open composer
             const newPostButton = await waitForElement('[data-testid="SideNav_NewTweet_Button"], [data-testid="SideNav_NewPost_Button"]');
             newPostButton.click();
             await wait(1000);
 
-            // Click schedule option
             const scheduleOption = await waitForElement('[data-testid="scheduleOption"]');
             scheduleOption.click();
             await wait(1000);
 
-            // Find and click "Scheduled posts" button by text content
             let schedBtn;
             const buttons = document.querySelectorAll('button');
             for (let btn of buttons) {
@@ -538,7 +559,6 @@
             schedBtn.click();
             await wait(1000);
 
-            // Do not close, leave open
         } catch (e) {
             console.error('Error opening scheduled view:', e);
             await closeModal();
@@ -549,17 +569,14 @@
         try {
             await closeModal();
 
-            // Open composer
             const newPostButton = await waitForElement('[data-testid="SideNav_NewTweet_Button"], [data-testid="SideNav_NewPost_Button"]');
             newPostButton.click();
             await wait(1000);
 
-            // Click schedule option
             const scheduleOption = await waitForElement('[data-testid="scheduleOption"]');
             scheduleOption.click();
             await wait(1000);
 
-            // Find and click "Scheduled posts" button by text content
             let schedBtn;
             const buttons = document.querySelectorAll('button');
             for (let btn of buttons) {
@@ -576,14 +593,12 @@
             schedBtn.click();
             await wait(1000);
 
-            // Check for empty state
             const emptyState = document.querySelector('[data-testid="emptyState"]');
             let count = 0;
             let latestTime = null;
             if (emptyState) {
                 logArea.innerHTML += 'Scheduled queue is empty.<br>';
             } else {
-                // Count posts and find latest time
                 const posts = document.querySelectorAll('[data-testid="unsentTweet"]');
                 count = posts.length;
                 logArea.innerHTML += `Scheduled posts count: ${count}<br>`;
@@ -626,6 +641,22 @@
         }
     }
 
+    function formatToParagraphs(opener, phrase, closer, emojis) {
+        const lines = [];
+        if (opener) {
+            const emoji1 = emojis.length > 0 ? emojis.shift() : '';
+            lines.push(`${opener} ${emoji1}`.trim());
+        }
+        if (phrase) {
+            const emoji2 = emojis.length > 0 ? emojis.shift() : '';
+            lines.push(`${phrase} ${emoji2}`.trim());
+        }
+        if (closer) {
+            lines.push(`${closer}!`.trim());
+        }
+        return lines.join('\n\n');
+    }
+
     async function generateRandomMessages() {
         const groups = [
             {greetings: defaults.gmGreetings, emojiPool: morningEmojis, count: 2},
@@ -643,9 +674,12 @@
                 } while (usedGreetings.includes(greeting) && usedGreetings.length < group.greetings.length);
 
                 usedGreetings.push(greeting);
-                const addCloser = !greeting.startsWith("Can I get a");
+                let phrase = '';
+                if (includePhrases && phrases.length > 0) {
+                    phrase = phrases[Math.floor(Math.random() * phrases.length)];
+                }
                 let closer = '';
-                if (addCloser) {
+                if (closers.length > 0) {
                     closer = closers[Math.floor(Math.random() * closers.length)];
                 }
                 let numEmojis;
@@ -654,14 +688,18 @@
                 } else {
                     numEmojis = maxEmojis;
                 }
-                let emojisStr = '';
+                let emojis = [];
                 for (let j = 0; j < numEmojis; j++) {
                     const emoji = group.emojiPool[Math.floor(Math.random() * group.emojiPool.length)];
-                    emojisStr += emoji;
+                    emojis.push(emoji);
                 }
-                const message = addCloser
-                    ? `${greeting} ${closer}${emojisStr ? ' ' + emojisStr : ''}`
-                    : `${greeting}${emojisStr ? ' ' + emojisStr : ''}`;
+                let message;
+                if (paragraphFormat) {
+                    message = formatToParagraphs(greeting, phrase, closer, emojis);
+                } else {
+                    const emojisStr = emojis.join('');
+                    message = `${greeting}${phrase ? ' ' + phrase : ''}${closer ? ' ' + closer : ''}${emojisStr ? ' ' + emojisStr : ''}`;
+                }
                 messagesLocal.push(message);
             }
         }
@@ -674,6 +712,8 @@
     let intervalMins = GM_getValue(storagePrefix + 'intervalMins', defaults.intervalMins);
     let maxEmojis = GM_getValue(storagePrefix + 'maxEmojis', defaults.maxEmojis);
     let regenerateOnAuto = GM_getValue(storagePrefix + 'regenerateOnAuto', defaults.regenerateOnAuto);
+    let includePhrases = GM_getValue(storagePrefix + 'includePhrases', defaults.includePhrases);
+    let paragraphFormat = GM_getValue(storagePrefix + 'paragraphFormat', defaults.paragraphFormat);
     let messages = GM_getValue(storagePrefix + 'messages', defaults.messages);
 
     // Always set current date on load
@@ -691,6 +731,8 @@
         GM_setValue(storagePrefix + 'intervalMins', intervalMins);
         GM_setValue(storagePrefix + 'maxEmojis', maxEmojis);
         GM_setValue(storagePrefix + 'regenerateOnAuto', regenerateOnAuto);
+        GM_setValue(storagePrefix + 'includePhrases', includePhrases);
+        GM_setValue(storagePrefix + 'paragraphFormat', paragraphFormat);
         GM_setValue(storagePrefix + 'messages', messages);
     }
 
@@ -723,6 +765,8 @@
                 <option value="Cute" ${mode === 'Cute' ? 'selected' : ''}>Cute</option>
                 <option value="Zen" ${mode === 'Zen' ? 'selected' : ''}>Zen</option>
                 <option value="Hype" ${mode === 'Hype' ? 'selected' : ''}>Hype</option>
+                <option value="Sports" ${mode === 'Sports' ? 'selected' : ''}>Sports</option>
+                <option value="Greetings" ${mode === 'Greetings' ? 'selected' : ''}>Greetings</option>
             </select>
         </label>
         <label style="display:block; margin-bottom:10px;">Start Date:
@@ -745,6 +789,12 @@
         </label>
         <label style="display:block; margin-bottom:10px;">
             <input type="checkbox" id="regenerateOnAuto" ${regenerateOnAuto ? 'checked' : ''}> Regenerate messages on auto-queue
+        </label>
+        <label style="display:block; margin-bottom:10px;">
+            <input type="checkbox" id="includePhrases" ${includePhrases ? 'checked' : ''}> Include mode phrases
+        </label>
+        <label style="display:block; margin-bottom:10px;">
+            <input type="checkbox" id="paragraphFormat" ${paragraphFormat ? 'checked' : ''}> Use paragraph format
         </label>
         <textarea id="newMsg" placeholder="Add new message" style="width:100%; height:60px; padding:8px; border:1px solid #ced4da; border-radius:4px; margin-bottom:10px;"></textarea>
         <button id="addMsgBtn" style="padding:6px 12px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer;">Add Message</button>
@@ -791,7 +841,7 @@
     function updateMsgList() {
         const listDiv = document.getElementById('msgList');
         listDiv.innerHTML = '<h4 style="margin:0 0 5px; color:#495057;">Messages:</h4><ul style="list-style:none; padding:0;">' +
-            messages.map((msg, i) => `<li style="margin-bottom:5px; background:#fff; padding:8px; border:1px solid #dee2e6; border-radius:4px; display:flex; justify-content:space-between; align-items:center;"><span>${msg}</span><button data-idx="${i}" class="editBtn" style="background:#ffc107; color:#212529; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-right:5px;">Edit</button><button data-idx="${i}" class="removeBtn" style="background:#dc3545; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Remove</button></li>`).join('') + '</ul>';
+            messages.map((msg, i) => `<li style="margin-bottom:5px; background:#fff; padding:8px; border:1px solid #dee2e6; border-radius:4px; display:flex; justify-content:space-between; align-items:center;"><span>${msg.replace(/\n/g, '<br>')}</span><button data-idx="${i}" class="editBtn" style="background:#ffc107; color:#212529; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-right:5px;">Edit</button><button data-idx="${i}" class="removeBtn" style="background:#dc3545; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Remove</button></li>`).join('') + '</ul>';
         listDiv.querySelectorAll('.removeBtn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const idx = parseInt(btn.dataset.idx, 10);
@@ -829,6 +879,8 @@
     const intervalMinsInput = document.getElementById('intervalMins');
     const maxEmojisSelect = document.getElementById('maxEmojis');
     const regenerateOnAutoCheckbox = document.getElementById('regenerateOnAuto');
+    const includePhrasesCheckbox = document.getElementById('includePhrases');
+    const paragraphFormatCheckbox = document.getElementById('paragraphFormat');
     const newMsgInput = document.getElementById('newMsg');
     const addMsgBtn = document.getElementById('addMsgBtn');
     const generateRandomBtn = document.getElementById('generateRandomBtn');
@@ -847,6 +899,7 @@
 
     modeSelect.addEventListener('change', () => {
         mode = modeSelect.value;
+        phrases = modes[mode].phrases.concat(resolvedAccountConfig.phrasesExtras || []);
         closers = modes[mode].closers.concat(resolvedAccountConfig.closersExtras || []);
         morningEmojis = modes[mode].morningEmojis.concat(resolvedAccountConfig.morningEmojisExtras || []);
         afternoonEmojis = modes[mode].afternoonEmojis.concat(resolvedAccountConfig.afternoonEmojisExtras || []);
@@ -871,7 +924,7 @@
             logArea.scrollTop = logArea.scrollHeight;
             return;
         }
-        ['mode', 'startDate', 'startTime', 'intervalHours', 'intervalMins', 'maxEmojis', 'regenerateOnAuto', 'messages', 'nextAutoCheckTime'].forEach(key => {
+        ['mode', 'startDate', 'startTime', 'intervalHours', 'intervalMins', 'maxEmojis', 'regenerateOnAuto', 'includePhrases', 'paragraphFormat', 'messages', 'nextAutoCheckTime'].forEach(key => {
             GM_deleteValue(storagePrefix + key);
         });
         location.reload();
@@ -910,6 +963,16 @@
         saveSettings();
     });
 
+    includePhrasesCheckbox.addEventListener('change', () => {
+        includePhrases = includePhrasesCheckbox.checked;
+        saveSettings();
+    });
+
+    paragraphFormatCheckbox.addEventListener('change', () => {
+        paragraphFormat = paragraphFormatCheckbox.checked;
+        saveSettings();
+    });
+
     addMsgBtn.addEventListener('click', () => {
         const newMsg = newMsgInput.value.trim();
         if (newMsg) {
@@ -924,7 +987,7 @@
         const times = computeScheduleTimes(startDate, startTime, intervalHours, intervalMins, messages.length);
         const tableDiv = document.getElementById('slotsTable');
         tableDiv.innerHTML = '<h4 style="margin:0 0 5px; color:#495057;">Scheduled Slots:</h4><table style="width:100%; border-collapse:collapse;"><tr><th style="border:1px solid #dee2e6; padding:8px; background:#e9ecef;">Time</th><th style="border:1px solid #dee2e6; padding:8px; background:#e9ecef;">Message</th></tr>' +
-            times.map((t, i) => `<tr><td style="border:1px solid #dee2e6; padding:8px;">${t.toLocaleString()}</td><td style="border:1px solid #dee2e6; padding:8px;">${messages[i]}</td></tr>`).join('') + '</table>';
+            times.map((t, i) => `<tr><td style="border:1px solid #dee2e6; padding:8px;">${t.toLocaleString()}</td><td style="border:1px solid #dee2e6; padding:8px;">${messages[i].replace(/\n/g, '<br>')}</td></tr>`).join('') + '</table>';
     });
 
     checkQueueBtn.addEventListener('click', async () => {
@@ -950,7 +1013,7 @@
         for (let i = 0; i < messages.length; i++) {
             const targetTime = times[i];
             const text = messages[i];
-            logArea.innerHTML += `Scheduling at ${targetTime.toLocaleString()}: "${text}"<br>`;
+            logArea.innerHTML += `Scheduling at ${targetTime.toLocaleString()}: "${text.replace(/\n/g, '\\n')}"<br>`;
             const success = await schedulePost(targetTime, text);
             logArea.innerHTML += success ? '<span style="color:green;">Success</span><br>' : '<span style="color:red;">Failed</span><br>';
             logArea.scrollTop = logArea.scrollHeight;
@@ -1007,7 +1070,7 @@
             for (let i = 0; i < messages.length; i++) {
                 const targetTime = times[i];
                 const text = messages[i];
-                logArea.innerHTML += `Auto-scheduling at ${targetTime.toLocaleString()}: "${text}"<br>`;
+                logArea.innerHTML += `Auto-scheduling at ${targetTime.toLocaleString()}: "${text.replace(/\n/g, '\\n')}"<br>`;
                 logArea.scrollTop = logArea.scrollHeight;
                 const success = await schedulePost(targetTime, text);
                 logArea.innerHTML += success ? '<span style="color:green;">Success</span><br>' : '<span style="color:red;">Failed</span><br>';
@@ -1026,7 +1089,6 @@
                 logArea.innerHTML += `Queue not empty (${count} posts), rechecking 5 min after latest post at ${new Date(latestTime).toLocaleString()}.<br>`;
                 statusArea.innerHTML = `Queue: ${count} posts. Next check: ${new Date(nextCheck).toLocaleString()}`;
             } else {
-                // If parse fails, assume full queue and compute assumed last GN time
                 const assumedTimes = computeScheduleTimes(getLocalDateStr(), startTime, intervalHours, intervalMins, 8);
                 const assumedLastGN = assumedTimes[assumedTimes.length - 1].getTime() + 5 * 60 * 1000;
                 GM_setValue(storagePrefix + 'nextAutoCheckTime', assumedLastGN);
@@ -1088,9 +1150,12 @@
                 intervalMins = GM_getValue(newPrefix + 'intervalMins', defaults.intervalMins);
                 maxEmojis = GM_getValue(newPrefix + 'maxEmojis', defaults.maxEmojis);
                 regenerateOnAuto = GM_getValue(newPrefix + 'regenerateOnAuto', defaults.regenerateOnAuto);
+                includePhrases = GM_getValue(newPrefix + 'includePhrases', defaults.includePhrases);
+                paragraphFormat = GM_getValue(newPrefix + 'paragraphFormat', defaults.paragraphFormat);
                 messages = GM_getValue(newPrefix + 'messages', await generateRandomMessages());
-                // Update closers/emojis based on new mode and account
+                // Update phrases/closers/emojis based on new mode and account
                 const newAccountConfig = getAccountConfig(currentUsername);
+                phrases = modes[mode].phrases.concat(newAccountConfig.phrasesExtras || []);
                 closers = modes[mode].closers.concat(newAccountConfig.closersExtras || []);
                 morningEmojis = modes[mode].morningEmojis.concat(newAccountConfig.morningEmojisExtras || []);
                 afternoonEmojis = modes[mode].afternoonEmojis.concat(newAccountConfig.afternoonEmojisExtras || []);
@@ -1103,6 +1168,8 @@
                 document.getElementById('intervalMins').value = intervalMins;
                 document.getElementById('maxEmojis').value = maxEmojis;
                 document.getElementById('regenerateOnAuto').checked = regenerateOnAuto;
+                document.getElementById('includePhrases').checked = includePhrases;
+                document.getElementById('paragraphFormat').checked = paragraphFormat;
                 updateMsgList();
                 saveSettings(); // Persist for new account
             }
