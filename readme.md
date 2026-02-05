@@ -39,7 +39,7 @@
 - 1.1.1 un tested, attempt to fix all bugs at once.
   
 # [𝕏-Auto-Scheduler](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/%F0%9D%95%8F-Auto-Scheduler.user.js "𝕏-Auto-Scheduler") ⬅️
-<img width="1600" height="852" alt="YanaHeat_firefox_BKlXpQMh1q" src="https://github.com/user-attachments/assets/93f2c3df-71fc-4df1-9b8a-baa6416cd894" />
+<img width="1600" height="852" alt="YanaHeat_firefox_bbhuRmJLvL" src="https://github.com/user-attachments/assets/3f6980e3-29e4-415d-b925-439bc13008be" />
 
 - 1.1 fixed: Set to current date while loading by default. Add generate random post button.
 - 1.2 fixed: No more duplicate messages.
