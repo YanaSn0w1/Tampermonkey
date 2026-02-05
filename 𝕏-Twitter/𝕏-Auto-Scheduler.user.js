@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         X-Auto-Scheduler
 // @namespace    http://tampermonkey.net/
-// @version      1.17
+// @version      1.15
 // @description  Auto-Scheduler for X.
 // @author       YanaHeat
 // @match        https://x.com/*
