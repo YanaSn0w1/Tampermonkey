@@ -56,7 +56,7 @@
 - 1.13 added: Removed AI. Added more modes and closers. Default Hype.
 - 1.14 fixed: Now does 12 hour and 24 hour formats.
 - 1.15 added: Paragraphing, 0 to 2 emoji doesn't work. GM no emoji causes to click wrong thing then wont post again till GM with emoji?
-- 1.15 needs better opener closer closer 2 that is more than 1 word
+- 1.16 added: removed 0 to 2 emoji, added tagging grok.
 
 # [X Post Deleter](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/XPostDeleter.user.js "X Post Deleter") ⬅️
 <img width="1364" height="768" alt="vmconnect_HmsOVMi0v9" src="https://github.com/user-attachments/assets/ae8a3502-dcaf-4b82-bc21-90192e1048f4" />
