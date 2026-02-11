@@ -39,7 +39,7 @@
 - 1.1.1 un tested, attempt to fix all bugs at once.
   
 # [𝕏-Auto-Scheduler](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/%F0%9D%95%8F-Auto-Scheduler.user.js "𝕏-Auto-Scheduler") ⬅️
-<img width="1600" height="852" alt="YanaHeat_firefox_bbhuRmJLvL" src="https://github.com/user-attachments/assets/3f6980e3-29e4-415d-b925-439bc13008be" />
+<img width="1600" height="900" alt="YanaHeat_firefox_eGFNk3agAu" src="https://github.com/user-attachments/assets/9b5061d9-f584-490d-967b-a9f7925e1546" />
 
 - 1.1 fixed: Set to current date while loading by default. Add generate random post button.
 - 1.2 fixed: No more duplicate messages.
@@ -57,6 +57,7 @@
 - 1.14 fixed: Now does 12 hour and 24 hour formats.
 - 1.15 added: Paragraphing, 0 to 2 emoji doesn't work. GM no emoji causes to click wrong thing then wont post again till GM with emoji?
 - 1.16 added: removed 0 to 2 emoji, added tagging grok.
+- 1.16 bugs: Only works with 1 emoji. Sometimes goes to home.
 
 # [X Post Deleter](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/XPostDeleter.user.js "X Post Deleter") ⬅️
 <img width="1364" height="768" alt="vmconnect_HmsOVMi0v9" src="https://github.com/user-attachments/assets/ae8a3502-dcaf-4b82-bc21-90192e1048f4" />
