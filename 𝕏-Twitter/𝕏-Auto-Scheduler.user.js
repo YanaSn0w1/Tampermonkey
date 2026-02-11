@@ -289,7 +289,7 @@
     const defaults = {
         mode: 'Flirty', // Changed default to Flirty as per context
         startDate: new Date().toISOString().split('T')[0],
-        startTime: '23:59',
+        startTime: '20:59',
         intervalHours: 2,
         intervalMins: 30,
         maxEmojis: 'random',
