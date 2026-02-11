@@ -64,7 +64,7 @@
                 "make me black",
                 "put me in a swimsuit",
                 "make me gay",
-                "make me latin",
+                "make me latino",
                 "imagine me sunbathing",
                 "show me on mars"
             ],
