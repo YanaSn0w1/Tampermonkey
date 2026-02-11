@@ -45,9 +45,9 @@
                 "Let's make some memories.", "You're so irresistible.", "Feeling flirty today.", "You're on my mind.", "Send me a kiss.",
                 "Your smile is my favorite.", "You make me blush.", "Can't wait to see you.", "You're too cute.", "Kissing you in my dreams.",
                 "You light up my day.", "Be mine?", "Flirting with you is fun.", "You're adorable.", "Love your vibe.",
-                "No paint in sight, and you're still drawing my attention.", "I wish I was your mirror, so that I could look at you every morning.",
-                "When I need a pick me up, I just think of your laugh and it makes me smile.", "Are you French? Because Eiffel for you.",
-                "Are you a Wi-Fi signal? Because I'm feeling a strong connection.", "Wanna be my little spoon?", "It's cold today. Can I warm you up?",
+                "You're still drawing my attention.", "I wish I was your mirror.",
+                "I need a pick me up.",
+                "I'm feeling strong.", "Wanna be my little spoon?", "Can I warm you up?",
                 "Your smile is my new happy place.", "Messy sheets and morning coffees. Hi!", "You looked hot last night.",
                 "If pretty was a content category you'd be trending."
             ],
@@ -350,10 +350,25 @@
 
         editor.dispatchEvent(pasteEvent);
 
-        await wait(600);
+        await wait(1000);
 
         // Verify insertion
-        const inserted = editor.textContent.includes(text.slice(0, Math.min(3, text.length)));
+        let inserted = editor.textContent.includes(text.slice(0, Math.min(3, text.length)));
+        if (!inserted) {
+            // Retry
+            editor.focus();
+            document.execCommand('selectAll', false, null);
+            document.execCommand('delete', false, null);
+            const retryPasteEvent = new ClipboardEvent("paste", {
+                bubbles: true,
+                cancelable: true,
+                clipboardData: new DataTransfer()
+            });
+            retryPasteEvent.clipboardData.setData("text/plain", text);
+            editor.dispatchEvent(retryPasteEvent);
+            await wait(1000);
+            inserted = editor.textContent.includes(text.slice(0, Math.min(3, text.length)));
+        }
 
         // Dispatch events to notify X that content changed
         editor.dispatchEvent(new Event('input', { bubbles: true }));
@@ -539,12 +554,12 @@
                 return false;
             }
 
-            await wait(500);
+            await wait(1000);
 
             const scheduleButton = await waitForElement('[data-testid="tweetButton"]:not([disabled])');
             scheduleButton.click();
 
-            await wait(1000);
+            await wait(2000);
 
             return true;
         } catch (e) {
@@ -699,7 +714,12 @@
                     } while (usedClosers.includes(closer) && usedClosers.length < closers.length);
                     usedClosers.push(closer);
                 }
-                let numEmojis = Math.random() < 0.5 ? 1 : 2;
+                let numEmojis;
+                if (maxEmojis === 'random') {
+                    numEmojis = Math.random() < 0.5 ? 1 : 2;
+                } else {
+                    numEmojis = parseInt(maxEmojis, 10);
+                }
                 let emojis = [];
                 for (let j = 0; j < numEmojis; j++) {
                     const emoji = group.emojiPool[Math.floor(Math.random() * group.emojiPool.length)];
@@ -751,7 +771,7 @@
     let startTime = GM_getValue(storagePrefix + 'startTime', defaults.startTime);
     let intervalHours = GM_getValue(storagePrefix + 'intervalHours', defaults.intervalHours);
     let intervalMins = GM_getValue(storagePrefix + 'intervalMins', defaults.intervalMins);
-    let maxEmojis = GM_getValue(storagePrefix + 'maxEmojis', defaults.maxEmojis);
+    let maxEmojis = String(GM_getValue(storagePrefix + 'maxEmojis', defaults.maxEmojis));
     let regenerateOnAuto = GM_getValue(storagePrefix + 'regenerateOnAuto', defaults.regenerateOnAuto);
     let includePhrases = GM_getValue(storagePrefix + 'includePhrases', defaults.includePhrases);
     let paragraphFormat = GM_getValue(storagePrefix + 'paragraphFormat', defaults.paragraphFormat);
@@ -822,9 +842,9 @@
         </label>
         <label style="display:block; margin-bottom:10px;">Emojis per Message:
             <select id="maxEmojis" style="padding:5px; border:1px solid #ced4da; border-radius:4px;">
-                <option value="0" ${String(maxEmojis) === '0' ? 'selected' : ''}>0</option>
-                <option value="1" ${String(maxEmojis) === '1' ? 'selected' : ''}>1</option>
-                <option value="2" ${String(maxEmojis) === '2' ? 'selected' : ''}>2</option>
+                <option value="0" ${maxEmojis === '0' ? 'selected' : ''}>0</option>
+                <option value="1" ${maxEmojis === '1' ? 'selected' : ''}>1</option>
+                <option value="2" ${maxEmojis === '2' ? 'selected' : ''}>2</option>
                 <option value="random" ${maxEmojis === 'random' ? 'selected' : ''}>Random (1-2)</option>
             </select>
         </label>
@@ -995,8 +1015,7 @@
     });
 
     maxEmojisSelect.addEventListener('change', () => {
-        const value = maxEmojisSelect.value;
-        maxEmojis = value === 'random' ? 'random' : parseInt(value, 10) || 'random';
+        maxEmojis = maxEmojisSelect.value;
         saveSettings();
     });
 
@@ -1059,7 +1078,7 @@
             const success = await schedulePost(targetTime, text);
             logArea.innerHTML += success ? '<span style="color:green;">Success</span><br>' : '<span style="color:red;">Failed</span><br>';
             logArea.scrollTop = logArea.scrollHeight;
-            await wait(2000);
+            await wait(3000);
         }
         setTimeout(() => { openScheduledView(); }, 1000);
         isScheduling = false;
@@ -1118,7 +1137,7 @@
                 logArea.innerHTML += success ? '<span style="color:green;">Success</span><br>' : '<span style="color:red;">Failed</span><br>';
                 logArea.scrollTop = logArea.scrollHeight;
                 if (success) successCount++;
-                await wait(2000);
+                await wait(3000);
             }
             setTimeout(() => { openScheduledView(); }, 1000); // Leave on scheduled page for manual pic addition
             const lastGNTime = times[times.length - 1].getTime() + 5 * 60 * 1000;
@@ -1190,7 +1209,7 @@
                 startTime = GM_getValue(newPrefix + 'startTime', defaults.startTime);
                 intervalHours = GM_getValue(newPrefix + 'intervalHours', defaults.intervalHours);
                 intervalMins = GM_getValue(newPrefix + 'intervalMins', defaults.intervalMins);
-                maxEmojis = GM_getValue(newPrefix + 'maxEmojis', defaults.maxEmojis);
+                maxEmojis = String(GM_getValue(newPrefix + 'maxEmojis', defaults.maxEmojis));
                 regenerateOnAuto = GM_getValue(newPrefix + 'regenerateOnAuto', defaults.regenerateOnAuto);
                 includePhrases = GM_getValue(newPrefix + 'includePhrases', defaults.includePhrases);
                 paragraphFormat = GM_getValue(newPrefix + 'paragraphFormat', defaults.paragraphFormat);
