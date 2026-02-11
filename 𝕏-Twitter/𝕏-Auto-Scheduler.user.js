@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         X-Auto-Scheduler
 // @namespace    http://tampermonkey.net/
-// @version      1.15
+// @version      1.17
 // @description  Auto-Scheduler for X.
 // @author       YanaHeat
 // @match        https://x.com/*
@@ -41,10 +41,32 @@
     const modes = {
         'Flirty': {
             phrases: [
-                "Babe", "Hun", "Darling", "Sweetheart", "Honey", "Baby", "Sweetie", "Angel", "Beautiful",
-                "Dear", "Beloved", "Sunshine", "Cupcake", "Pumpkin", "Buttercup", "Cherub", "Boo", "Bae",
-                "My Love", "Bunny", "Lovey", "Sugar", "Sweetpea", "Poppet", "Princess", "Cutie",
-                "Gorgeous", "Muffin", "Hun"
+                "Can't stop thinking about you.", "You make my heart race.", "Dreaming of your smile.", "Missing your touch.", "You're my favorite distraction.",
+                "Let's make some memories.", "You're so irresistible.", "Feeling flirty today.", "You're on my mind.", "Send me a kiss.",
+                "Your smile is my favorite.", "You make me blush.", "Can't wait to see you.", "You're too cute.", "Kissing you in my dreams.",
+                "You light up my day.", "Be mine?", "Flirting with you is fun.", "You're adorable.", "Love your vibe.",
+                "No paint in sight, and you're still drawing my attention.", "I wish I was your mirror, so that I could look at you every morning.",
+                "When I need a pick me up, I just think of your laugh and it makes me smile.", "Are you French? Because Eiffel for you.",
+                "Are you a Wi-Fi signal? Because I'm feeling a strong connection.", "Wanna be my little spoon?", "It's cold today. Can I warm you up?",
+                "Your smile is my new happy place.", "Messy sheets and morning coffees. Hi!", "You looked hot last night.",
+                "If pretty was a content category you'd be trending."
+            ],
+            actions: [
+                "put me in a bikini",
+                "draw me as a superhero",
+                "do me on the beach",
+                "show me in a sexy dress",
+                "do me smiling",
+                "put me in lingerie",
+                "do me as a teacher",
+                "do me by the pool",
+                "put me in space",
+                "make me black",
+                "put me in a swimsuit",
+                "make me gay",
+                "make me latin",
+                "imagine me sunbathing",
+                "show me on mars"
             ],
             closers: ["xoxo", "kisses", "yours", "love", "dear", "hugs", "sweetie", "darling", "babe", "hun"],
             morningEmojis: ["💕", "❤️", "😘", "😍", "🌹", "😊", "💋", "🥰", "💖", "😊"],
@@ -265,15 +287,11 @@
     }
 
     const defaults = {
-        mode: 'Hype', // Default mode
+        mode: 'Flirty', // Changed default to Flirty as per context
         startDate: new Date().toISOString().split('T')[0],
         startTime: '23:59',
         intervalHours: 2,
         intervalMins: 30,
-        gmGreetings: ["Good morning", "GM", "Can I get a GM?"],
-        gaGreetings: ["Good afternoon", "GA", "Can I get a GA?"],
-        geGreetings: ["Good evening", "GE", "Can I get a GE?"],
-        gnGreetings: ["Good night", "GN", "Can I get a GN?"],
         maxEmojis: 'random',
         regenerateOnAuto: true,
         includePhrases: true,
@@ -285,12 +303,13 @@
 
     let mode = GM_getValue(storagePrefix + 'mode', defaults.mode);
     let phrases = modes[mode].phrases.concat(resolvedAccountConfig.phrasesExtras || []);
+    let actions = modes[mode].actions || [];
     let closers = modes[mode].closers.concat(resolvedAccountConfig.closersExtras || []);
     let morningEmojis = modes[mode].morningEmojis.concat(resolvedAccountConfig.morningEmojisExtras || []);
     let afternoonEmojis = modes[mode].afternoonEmojis.concat(resolvedAccountConfig.afternoonEmojisExtras || []);
     let eveningNightEmojis = modes[mode].eveningNightEmojis.concat(resolvedAccountConfig.eveningNightEmojisExtras || []);
 
-    function waitForElement(selector, timeout = 10000) {
+    function waitForElement(selector, timeout = 5000) {
         return new Promise((resolve, reject) => {
             const start = Date.now();
             const interval = setInterval(() => {
@@ -331,15 +350,16 @@
 
         editor.dispatchEvent(pasteEvent);
 
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-        editor.dispatchEvent(new Event('change', { bubbles: true }));
-        editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
-        editor.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
-
         await wait(600);
 
         // Verify insertion
         const inserted = editor.textContent.includes(text.slice(0, Math.min(3, text.length)));
+
+        // Dispatch events to notify X that content changed
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        editor.dispatchEvent(new Event('change', { bubbles: true }));
+        editor.dispatchEvent(new Event('keydown', { bubbles: true }));
+        editor.dispatchEvent(new Event('keyup', { bubbles: true }));
 
         editor.blur();
 
@@ -378,6 +398,9 @@
         }
 
         const intervalMs = (intervalHours * 60 + intervalMins) * 60 * 1000;
+        if (intervalMs === 0) {
+            return [];
+        }
         const times = [];
         for (let i = 0; i < numPosts; i++) {
             const t = new Date(start.getTime() + i * intervalMs);
@@ -516,7 +539,7 @@
                 return false;
             }
 
-            await wait(1000);
+            await wait(500);
 
             const scheduleButton = await waitForElement('[data-testid="tweetButton"]:not([disabled])');
             scheduleButton.click();
@@ -641,64 +664,82 @@
         }
     }
 
-    function formatToParagraphs(opener, phrase, closer, emojis) {
-        const lines = [];
-        if (opener) {
-            const emoji1 = emojis.length > 0 ? emojis.shift() : '';
-            lines.push(`${opener} ${emoji1}`.trim());
-        }
-        if (phrase) {
-            const emoji2 = emojis.length > 0 ? emojis.shift() : '';
-            lines.push(`${phrase} ${emoji2}`.trim());
-        }
-        if (closer) {
-            lines.push(`${closer}!`.trim());
-        }
-        return lines.join('\n\n');
-    }
-
     async function generateRandomMessages() {
         const groups = [
-            {greetings: defaults.gmGreetings, emojiPool: morningEmojis, count: 2},
-            {greetings: defaults.gaGreetings, emojiPool: afternoonEmojis, count: 2},
-            {greetings: defaults.geGreetings, emojiPool: eveningNightEmojis, count: 2},
-            {greetings: defaults.gnGreetings, emojiPool: eveningNightEmojis, count: 2}
+            {timeGreeting: "Good morning", emojiPool: morningEmojis, count: 2},
+            {timeGreeting: "Good afternoon", emojiPool: afternoonEmojis, count: 2},
+            {timeGreeting: "Good evening", emojiPool: eveningNightEmojis, count: 2},
+            {timeGreeting: "Good night", emojiPool: eveningNightEmojis, count: 2}
         ];
+        const salutations = ["Hey", "Hi", "Hello"];
         const messagesLocal = [];
         for (const group of groups) {
-            let usedGreetings = [];
+            let usedLine2 = [];
+            let usedClosers = [];
             for (let i = 0; i < group.count; i++) {
-                let greeting;
-                do {
-                    greeting = group.greetings[Math.floor(Math.random() * group.greetings.length)];
-                } while (usedGreetings.includes(greeting) && usedGreetings.length < group.greetings.length);
-
-                usedGreetings.push(greeting);
-                let phrase = '';
-                if (includePhrases && phrases.length > 0) {
-                    phrase = phrases[Math.floor(Math.random() * phrases.length)];
+                let opener = '';
+                if (i > 0) {
+                    const salutation = salutations[Math.floor(Math.random() * salutations.length)];
+                    opener = `${salutation} @grok`;
+                }
+                let line2 = '';
+                if (includePhrases) {
+                    const line2Pool = (i === 0 ? phrases : (actions.length > 0 ? actions : phrases));
+                    if (line2Pool.length > 0) {
+                        do {
+                            line2 = line2Pool[Math.floor(Math.random() * line2Pool.length)];
+                        } while (usedLine2.includes(line2) && usedLine2.length < line2Pool.length);
+                        usedLine2.push(line2);
+                    }
                 }
                 let closer = '';
                 if (closers.length > 0) {
-                    closer = closers[Math.floor(Math.random() * closers.length)];
+                    do {
+                        closer = closers[Math.floor(Math.random() * closers.length)];
+                    } while (usedClosers.includes(closer) && usedClosers.length < closers.length);
+                    usedClosers.push(closer);
                 }
-                let numEmojis;
-                if (maxEmojis === 'random') {
-                    numEmojis = Math.random() < 0.3 ? 0 : (Math.random() < 0.7 ? 1 : 2);
-                } else {
-                    numEmojis = maxEmojis;
-                }
+                let numEmojis = Math.random() < 0.5 ? 1 : 2;
                 let emojis = [];
                 for (let j = 0; j < numEmojis; j++) {
                     const emoji = group.emojiPool[Math.floor(Math.random() * group.emojiPool.length)];
                     emojis.push(emoji);
                 }
+                let lines = [];
+                if (i === 0 && paragraphFormat) {
+                    lines.push(group.timeGreeting);
+                }
+                if (opener) {
+                    lines.push(opener);
+                }
+                if (line2) {
+                    lines.push(line2);
+                }
+                if (closer) {
+                    lines.push(closer);
+                }
+                // Always add first emoji to first line
+                if (lines.length > 0 && emojis.length > 0) {
+                    lines[0] += ` ${emojis.shift()}`;
+                }
+                // If second emoji, add to random line 2 or 3 if exist
+                if (emojis.length > 0) {
+                    const candidateLines = [];
+                    if (lines.length > 1) candidateLines.push(1);
+                    if (lines.length > 2) candidateLines.push(2);
+                    if (candidateLines.length > 0) {
+                        const randomIndex = candidateLines[Math.floor(Math.random() * candidateLines.length)];
+                        lines[randomIndex] += ` ${emojis.shift()}`;
+                    } else {
+                        // Fallback to first line if no other lines
+                        lines[0] += ` ${emojis.shift()}`;
+                    }
+                }
                 let message;
                 if (paragraphFormat) {
-                    message = formatToParagraphs(greeting, phrase, closer, emojis);
+                    message = lines.join('\n\n');
                 } else {
-                    const emojisStr = emojis.join('');
-                    message = `${greeting}${phrase ? ' ' + phrase : ''}${closer ? ' ' + closer : ''}${emojisStr ? ' ' + emojisStr : ''}`;
+                    message = lines.join(' ');
                 }
                 messagesLocal.push(message);
             }
@@ -784,14 +825,14 @@
                 <option value="0" ${String(maxEmojis) === '0' ? 'selected' : ''}>0</option>
                 <option value="1" ${String(maxEmojis) === '1' ? 'selected' : ''}>1</option>
                 <option value="2" ${String(maxEmojis) === '2' ? 'selected' : ''}>2</option>
-                <option value="random" ${maxEmojis === 'random' ? 'selected' : ''}>Random (0-2)</option>
+                <option value="random" ${maxEmojis === 'random' ? 'selected' : ''}>Random (1-2)</option>
             </select>
         </label>
         <label style="display:block; margin-bottom:10px;">
             <input type="checkbox" id="regenerateOnAuto" ${regenerateOnAuto ? 'checked' : ''}> Regenerate messages on auto-queue
         </label>
         <label style="display:block; margin-bottom:10px;">
-            <input type="checkbox" id="includePhrases" ${includePhrases ? 'checked' : ''}> Include mode phrases
+            <input type="checkbox" id="includePhrases" ${includePhrases ? 'checked' : ''}> Include mode phrases/actions
         </label>
         <label style="display:block; margin-bottom:10px;">
             <input type="checkbox" id="paragraphFormat" ${paragraphFormat ? 'checked' : ''}> Use paragraph format
@@ -900,6 +941,7 @@
     modeSelect.addEventListener('change', () => {
         mode = modeSelect.value;
         phrases = modes[mode].phrases.concat(resolvedAccountConfig.phrasesExtras || []);
+        actions = modes[mode].actions || [];
         closers = modes[mode].closers.concat(resolvedAccountConfig.closersExtras || []);
         morningEmojis = modes[mode].morningEmojis.concat(resolvedAccountConfig.morningEmojisExtras || []);
         afternoonEmojis = modes[mode].afternoonEmojis.concat(resolvedAccountConfig.afternoonEmojisExtras || []);
@@ -1057,7 +1099,7 @@
         const {count, latestTime} = await getScheduledInfo(logArea);
         if (count === 0) {
             const today = getLocalDateStr();
-            logArea.innerHTML += 'Queue is empty, auto-generating and scheduling 8 posts...<br>';
+            logArea.innerHTML += 'Queue is empty, auto-generating and scheduling posts...<br>';
             logArea.scrollTop = logArea.scrollHeight;
             if (regenerateOnAuto) {
                 messages = await generateRandomMessages();
@@ -1156,6 +1198,7 @@
                 // Update phrases/closers/emojis based on new mode and account
                 const newAccountConfig = getAccountConfig(currentUsername);
                 phrases = modes[mode].phrases.concat(newAccountConfig.phrasesExtras || []);
+                actions = modes[mode].actions || [];
                 closers = modes[mode].closers.concat(newAccountConfig.closersExtras || []);
                 morningEmojis = modes[mode].morningEmojis.concat(newAccountConfig.morningEmojisExtras || []);
                 afternoonEmojis = modes[mode].afternoonEmojis.concat(newAccountConfig.afternoonEmojisExtras || []);
