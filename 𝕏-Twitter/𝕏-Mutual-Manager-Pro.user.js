@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         𝕏-Mutual-Manager-Pro
 // @namespace    http://tampermonkey.net/
-// @version      1.0.2
+// @version      1.0.3
 // @author       YanaHeat
 // @match        https://x.com/*follow*
 // @grant        none
@@ -93,7 +93,6 @@
       name.toLowerCase().includes(k) || username.toLowerCase().includes(k) || bio.toLowerCase().includes(k)
     );
 
-    // Improved verified badge detection
     const verifiedBadge = cell.querySelector('svg[aria-label="Verified account"]');
     const isVerified = !!verifiedBadge;
 
@@ -224,10 +223,17 @@
     return details;
   }
 
+  // ==================== UPDATED BOT FILTERS (clear labels) ====================
+  // Now automatically says "Unfollow ..." on Following page
+  // and "Skip ..." on Followers / Verified Followers pages
   const botFiltersContent = document.createElement('div');
   botFiltersContent.style.display = 'flex';
   botFiltersContent.style.flexDirection = 'column';
   botFiltersContent.style.gap = '8px';
+
+  function getFilterLabel(base) {
+    return mode === 'unfollow' ? `Unfollow ${base}` : `Skip ${base}`;
+  }
 
   const defaultPicDiv = document.createElement('div');
   defaultPicDiv.style.cssText = 'display:flex;align-items:center;';
@@ -241,7 +247,7 @@
   };
   const defaultPicLabel = document.createElement('label');
   defaultPicLabel.htmlFor = 'skip-default-pic';
-  defaultPicLabel.textContent = 'Skip Default Pic';
+  defaultPicLabel.textContent = getFilterLabel('Default Pic');
   defaultPicLabel.style.marginLeft = '5px';
   defaultPicDiv.appendChild(defaultPicCheckbox);
   defaultPicDiv.appendChild(defaultPicLabel);
@@ -259,7 +265,7 @@
   };
   const noBioLabel = document.createElement('label');
   noBioLabel.htmlFor = 'skip-no-bio';
-  noBioLabel.textContent = 'Skip No Bio';
+  noBioLabel.textContent = getFilterLabel('No Bio');
   noBioLabel.style.marginLeft = '5px';
   noBioDiv.appendChild(noBioCheckbox);
   noBioDiv.appendChild(noBioLabel);
@@ -277,13 +283,14 @@
   };
   const keywordsLabel = document.createElement('label');
   keywordsLabel.htmlFor = 'skip-keywords';
-  keywordsLabel.textContent = 'Skip Keywords';
+  keywordsLabel.textContent = getFilterLabel('Keywords');
   keywordsLabel.style.marginLeft = '5px';
   keywordsDiv.appendChild(keywordsCheckbox);
   keywordsDiv.appendChild(keywordsLabel);
   botFiltersContent.appendChild(keywordsDiv);
 
   ui.appendChild(createCollapsible('Bot Filters', botFiltersContent));
+  // =====================================================================
 
   const keywordsContent = document.createElement('div');
   keywordsContent.style.display = 'flex';
@@ -490,7 +497,6 @@
     fbScanMaxDiv.appendChild(fbScanMaxInput);
     advancedContent.appendChild(fbScanMaxDiv);
   } else {
-    // Add unfollow unverified checkbox for unfollow mode
     const unfollowUnvDiv = document.createElement('div');
     unfollowUnvDiv.style.cssText = 'display:flex;align-items:center;';
     const unfollowUnvCheckbox = document.createElement('input');
@@ -518,9 +524,6 @@
   let paused = true;
 
   if (mode === 'unfollow') {
-    let UNFOLLOW_UNVERIFIED = localStorage.getItem('um_unfollow_unverified') === 'true';
-
-    // Create a function to get the current setting
     function getUnfollowUnverified() {
       return localStorage.getItem('um_unfollow_unverified') === 'true';
     }
@@ -681,8 +684,7 @@
         let reasons = [];
         if (!isMutual) reasons.push('non-mutual');
         reasons = reasons.concat(botReasons);
-        
-        // Check if we should unfollow unverified accounts
+
         const unfollowUnverifiedEnabled = getUnfollowUnverified();
         if (unfollowUnverifiedEnabled && !isVerified) {
           reasons.push('unverified');
