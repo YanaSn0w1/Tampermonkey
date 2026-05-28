@@ -59,7 +59,7 @@
 - 1.16 added: removed 0 to 2 emoji, added tagging grok.
 - 1.16 bugs: Sometimes only works with 1 emoji sometimes 2. Sometimes goes to home.
 
-# [X Post Deleter](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/XPostDeleter.user.js "X Post Deleter") ⬅️
-<img width="1364" height="768" alt="vmconnect_HmsOVMi0v9" src="https://github.com/user-attachments/assets/ae8a3502-dcaf-4b82-bc21-90192e1048f4" />
+# [X Bulk Deleter](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/X%20Bulk%20Deleter.user.js "X Bulk Deleter") ⬅️
+<img width="1600" height="900" alt="firefox_tS18dfRbC0" src="https://github.com/user-attachments/assets/d52bb995-5767-4ba3-aa33-2db2d904c4e3" />
 
 # [PayPal-Donations](https://www.paypal.com/donate/?hosted_button_id=9LWWH273HEVC4 "Donate to YanaHeat") ⬅️
