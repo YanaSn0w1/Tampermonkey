@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         X Bulk Deleter (v4 - Robust)
+// @name         X Bulk Deleter (Persistent Progress Fix)
 // @match        https://x.com/*
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -30,7 +30,6 @@
 
     async function getCurrentUsername(retries = 5) {
         for (let i = 0; i < retries; i++) {
-            // Try multiple selectors
             let el = document.querySelector('a[data-testid="AppTabBar_Profile_Link"]');
             if (!el) el = document.querySelector('a[aria-label="Profile"][href^="/"]');
             if (!el) el = document.querySelector('a[href^="/"][role="link"][aria-label*="Profile"]');
@@ -43,7 +42,7 @@
                     if (username) return username;
                 }
             }
-            await new Promise(r => setTimeout(r, 400)); // wait a bit and retry
+            await new Promise(r => setTimeout(r, 400));
         }
         return null;
     }
@@ -58,22 +57,41 @@
         const savedReverse = localStorage.getItem('xBulkDeleter_reverse');
         goBackwards = savedReverse === 'true';
 
+        // Try sessionStorage first
         try {
-            const saved = sessionStorage.getItem('xBulkDeleter');
-            if (saved) {
-                const d = JSON.parse(saved);
+            const sessionData = sessionStorage.getItem('xBulkDeleter');
+            if (sessionData) {
+                const d = JSON.parse(sessionData);
                 postList = d.postList || [];
                 currentIndex = d.currentIndex || 0;
-                jsonLoaded = postList.length > 0;
                 paused = d.paused || false;
+                jsonLoaded = postList.length > 0;
+                return;
             }
         } catch(e){}
+
+        // Load from persistent storage if remember progress is enabled
+        if (rememberProgress) {
+            try {
+                const persistentData = GM_getValue('bulkDeleter_persistent', null);
+                if (persistentData) {
+                    const d = JSON.parse(persistentData);
+                    postList = d.postList || [];
+                    currentIndex = d.currentIndex || 0;
+                    paused = d.paused || false;
+                    jsonLoaded = postList.length > 0;
+                    console.log('[X Bulk Deleter] Restored progress from persistent storage');
+                }
+            } catch(e){}
+        }
     }
 
     function saveState() {
         const data = { postList, currentIndex, paused };
         sessionStorage.setItem('xBulkDeleter', JSON.stringify(data));
-        if (rememberProgress) GM_setValue('bulkDeleter_persistent', JSON.stringify(data));
+        if (rememberProgress) {
+            GM_setValue('bulkDeleter_persistent', JSON.stringify(data));
+        }
         localStorage.setItem('xBulkDeleter_delay', delaySeconds);
         localStorage.setItem('xBulkDeleter_reverse', goBackwards);
     }
@@ -108,7 +126,6 @@
             return [myTweets[myTweets.length - 1]];
         }
 
-        // Fallback
         for (let i = tweets.length - 1; i >= 0; i--) {
             const tweet = tweets[i];
             if (tweet.querySelector('[data-testid="caret"]') && tweet.innerText.includes(currentUsername)) {
@@ -184,8 +201,8 @@
             return;
         }
 
-        status.textContent = paused
-            ? `Paused (${currentIndex}/${postList.length})`
+        status.textContent = paused 
+            ? `Paused (${currentIndex}/${postList.length})` 
             : 'Running...';
         toggle.textContent = paused ? '▶ Resume' : '⏸ Pause';
         toggle.style.background = paused ? '#22c55e' : '#eab308';
