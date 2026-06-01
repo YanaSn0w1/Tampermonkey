@@ -8,7 +8,7 @@
 - Will skip default pic, no bio and keywords if enabled.
 - Will do 1 initial check then another smaller set to 50.
 ## Mode 2:
-- Will unfollow based on same conditions as above + non mutual.
+- Unfollow same as above + non mutual.
 
 ## Install 
 - Install [Tampermonkey]( https://www.google.com/search?q=tampermonkey "Search Google for Tampermonkey")
