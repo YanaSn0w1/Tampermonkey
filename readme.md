@@ -3,11 +3,11 @@
 <img width="1588" height="687" alt="X5wW1rlOVs" src="https://github.com/user-attachments/assets/07c3b4d9-7afa-41d8-9ac4-78887df2c2cf" />
 
 # Description
-- Mode 1:
+## Mode 1:
 - Will follow back up to 14 every 15 minutes.
 - Will skip default pic, no bio and keywords if enabled.
 - Will do 1 initial check then another smaller set to 50.
-- Mode 2:
+## Mode 2:
 - Will unfollow based on same conditions as above + non mutual.
 
 ## Install 
