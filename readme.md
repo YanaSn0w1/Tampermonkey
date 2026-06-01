@@ -19,7 +19,6 @@
 -  May not work so well if not viewable as main window but half window works so use window snap in the maximize button or a Virtual Machine.
   
 # [𝕏-Auto-Scheduler](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/%F0%9D%95%8F-Auto-Scheduler.user.js "𝕏-Auto-Scheduler") ⬅️
-<img width="1600" height="900" alt="YanaHeat_firefox_eGFNk3agAu" src="https://github.com/user-attachments/assets/9b5061d9-f584-490d-967b-a9f7925e1546" />
 
 # [X Bulk Deleter](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/X%20Bulk%20Deleter.user.js "X Bulk Deleter") ⬅️
 - Download your X archives
