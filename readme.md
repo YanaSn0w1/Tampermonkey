@@ -1,6 +1,6 @@
 # [PayPal-Donations](https://www.paypal.com/donate/?hosted_button_id=9LWWH273HEVC4 "Donate to YanaHeat") ⬅️
 # [𝕏 Mutual Manager](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/%F0%9D%95%8F%20Mutual%20Manager.user.js "𝕏 Mutual Manager") ⬅️
-<img width="798" height="851" alt="firefox_8H4HJaPqaU" src="https://github.com/user-attachments/assets/f583c2d7-b85c-4954-aef5-04b9ee8adf66" />
+<img width="797" height="682" alt="firefox_sq3EpiFeQD" src="https://github.com/user-attachments/assets/014a105a-a853-4bc7-abcb-365075a349f8" />
 
 # Description
 ## Mode 1:
