@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         𝕏-Mutual-Manager-Pro
+// @name         𝕏 Mutual Manager
 // @namespace    http://tampermonkey.net/
 // @version      1.1.2
 // @author       YanaHeat
