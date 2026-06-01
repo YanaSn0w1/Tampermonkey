@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         𝕏 Mutual Manager
+// @name         𝕏-Mutual-Manager-Pro
 // @namespace    http://tampermonkey.net/
-// @version      1.0.3
+// @version      1.1.2
 // @author       YanaHeat
 // @match        https://x.com/*follow*
 // @grant        none
@@ -20,7 +20,7 @@
   let scPauseCount = parseInt(localStorage.getItem('um_sc_pause_count')) || 200;
   let scPauseSeconds = parseInt(localStorage.getItem('um_sc_pause_seconds')) || 30;
   const fbMaxPerPeriod = 14;
-  let fbCooldownMinutes = parseInt(localStorage.getItem('um_fb_cooldown_minutes')) || 15;
+  let fbCooldownMinutes = parseFloat(localStorage.getItem('um_fb_cooldown_minutes')) || 15;
 
   const MIN_DELAY = 200;
   const MAX_DELAY = 600;
@@ -28,9 +28,9 @@
   const SCROLL_POSITION = 107;
   const STUCK_THRESHOLD = 60;
 
-  const UF_MAX_PER_PERIOD = 150;
+  let UF_MAX_PER_PERIOD = 150;
   let ACTION_CD = fbCooldownMinutes * 60 * 1000;
-  const SC_MAX_UNFOLLOW = 40000;
+  const SC_MAX_UNFOLLOW = 60000;
 
   const FB_SCAN_MIN = 50;
   const SC_INIT = 100;
@@ -173,7 +173,7 @@
 
   const startBtn = document.createElement('button');
   startBtn.textContent = 'Start';
-  startBtn.style.cssText = 'padding:10px;font-weight:bold;font-size:15px;border-radius:6px;background:#2196F3;color:white;cursor:pointer;';
+  startBtn.style.cssText = 'padding:10px;font-weight:bold;font-size:15px;border-radius:6px;background:#f44336;color:white;cursor:pointer;';
   ui.appendChild(startBtn);
 
   const modeLine = document.createElement('div');
@@ -200,7 +200,7 @@
 
   const resetBtn = document.createElement('button');
   resetBtn.textContent = 'Reset This Mode & Reload';
-  resetBtn.style.cssText = 'padding:8px;font-weight:bold;cursor:pointer;border-radius:6px;background:#f44336;color:white;';
+  resetBtn.style.cssText = 'padding:8px;font-weight:bold;cursor:pointer;border-radius:6px;background:#2196F3;color:white;';
   resetBtn.onclick = () => {
     const prefix = mode === 'unfollow' ? 'um_uf_' : 'um_fb_';
     Object.keys(localStorage)
@@ -223,9 +223,7 @@
     return details;
   }
 
-  // ==================== UPDATED BOT FILTERS (clear labels) ====================
-  // Now automatically says "Unfollow ..." on Following page
-  // and "Skip ..." on Followers / Verified Followers pages
+  // ==================== BOT FILTERS ====================
   const botFiltersContent = document.createElement('div');
   botFiltersContent.style.display = 'flex';
   botFiltersContent.style.flexDirection = 'column';
@@ -290,7 +288,6 @@
   botFiltersContent.appendChild(keywordsDiv);
 
   ui.appendChild(createCollapsible('Bot Filters', botFiltersContent));
-  // =====================================================================
 
   const keywordsContent = document.createElement('div');
   keywordsContent.style.display = 'flex';
@@ -439,6 +436,7 @@
   pauseSecondsDiv.appendChild(pauseSecondsInput);
   advancedContent.appendChild(pauseSecondsDiv);
 
+  // === Cooldown Minutes with decimal support ===
   const cooldownDiv = document.createElement('div');
   cooldownDiv.style.cssText = 'display:flex;align-items:center;gap:5px;';
   const cooldownLabel = document.createElement('label');
@@ -446,15 +444,51 @@
   const cooldownInput = document.createElement('input');
   cooldownInput.type = 'number';
   cooldownInput.value = fbCooldownMinutes;
-  cooldownInput.min = '1';
+  cooldownInput.min = '0.01';
+  cooldownInput.step = '0.1';
   cooldownInput.onchange = () => {
-    fbCooldownMinutes = parseInt(cooldownInput.value) || 15;
+    fbCooldownMinutes = parseFloat(cooldownInput.value) || 15;
     localStorage.setItem('um_fb_cooldown_minutes', fbCooldownMinutes);
     ACTION_CD = fbCooldownMinutes * 60 * 1000;
   };
   cooldownDiv.appendChild(cooldownLabel);
   cooldownDiv.appendChild(cooldownInput);
   advancedContent.appendChild(cooldownDiv);
+
+  if (mode === 'unfollow') {
+    const maxUnfollowDiv = document.createElement('div');
+    maxUnfollowDiv.style.cssText = 'display:flex;align-items:center;gap:5px;';
+    const maxUnfollowLabel = document.createElement('label');
+    maxUnfollowLabel.textContent = 'Max unfollow (per cooldown):';
+    const maxUnfollowInput = document.createElement('input');
+    maxUnfollowInput.type = 'number';
+    maxUnfollowInput.value = parseInt(localStorage.getItem('um_uf_max_per_period')) || 50;
+    maxUnfollowInput.min = '1';
+    maxUnfollowInput.onchange = () => {
+      UF_MAX_PER_PERIOD = parseInt(maxUnfollowInput.value) || 50;
+      localStorage.setItem('um_uf_max_per_period', UF_MAX_PER_PERIOD);
+      updateUI();
+    };
+    maxUnfollowDiv.appendChild(maxUnfollowLabel);
+    maxUnfollowDiv.appendChild(maxUnfollowInput);
+    advancedContent.appendChild(maxUnfollowDiv);
+
+    const maxScanDiv = document.createElement('div');
+    maxScanDiv.style.cssText = 'display:flex;align-items:center;gap:5px;';
+    const maxScanLabel = document.createElement('label');
+    maxScanLabel.textContent = 'Max scan:';
+    const maxScanInput = document.createElement('input');
+    maxScanInput.type = 'number';
+    maxScanInput.value = parseInt(localStorage.getItem('um_sc_max_scan')) || 60000;
+    maxScanInput.min = '1';
+    maxScanInput.onchange = () => {
+      localStorage.setItem('um_sc_max_scan', maxScanInput.value);
+      updateUI();
+    };
+    maxScanDiv.appendChild(maxScanLabel);
+    maxScanDiv.appendChild(maxScanInput);
+    advancedContent.appendChild(maxScanDiv);
+  }
 
   let followUnvCheckbox;
   if (mode !== 'unfollow') {
@@ -522,6 +556,7 @@
 
   let running = false;
   let paused = true;
+  let manuallyPaused = false;
 
   if (mode === 'unfollow') {
     function getUnfollowUnverified() {
@@ -529,8 +564,8 @@
     }
 
     modeLine.textContent = 'Mode: Unfollow non-mutuals + bots';
-    actionLine.innerHTML = `Unfollows: <span id="action-count">0/${UF_MAX_PER_PERIOD}</span><span id="timer"></span>`;
-    scanLine.innerHTML = `Scan: <span id="scan-count">0/${SC_MAX_UNFOLLOW}</span> <span id="scan-timer">00:00:00</span>`;
+    actionLine.innerHTML = `Unfollows: <span id="action-count">0/50</span><span id="timer"></span>`;
+    scanLine.innerHTML = `Scan: <span id="scan-count">0/60000</span> <span id="scan-timer">00:00:00</span>`;
 
     const actionCountSpan = document.getElementById('action-count');
     const timerSpan = document.getElementById('timer');
@@ -544,6 +579,8 @@
     let hasActioned = false;
     let timerInt = null;
     let periodStart = null;
+
+    UF_MAX_PER_PERIOD = parseInt(localStorage.getItem('um_uf_max_per_period')) || 50;
 
     const storagePrefix = 'um_uf_';
 
@@ -561,6 +598,7 @@
         }
       }
       updateUI();
+      updateStartButton();
     }
 
     function saveState() {
@@ -582,11 +620,22 @@
           periodStart = null;
           actionedInPeriod = 0;
           hasActioned = false;
+
+          const shouldAutoResume = !manuallyPaused;
+
+          paused = true;
+          manuallyPaused = false;
           saveState();
           updateUI();
-          setTimeout(() => {
-            if (startBtn.textContent === 'Start') startBtn.click();
-          }, 1000);
+          updateStartButton();
+
+          if (shouldAutoResume) {
+            setTimeout(() => {
+              if (startBtn.textContent === 'Start' || startBtn.textContent === 'Paused') {
+                startBtn.click();
+              }
+            }, 1200);
+          }
         }
       }, 1000);
     }
@@ -598,6 +647,7 @@
       hasActioned = true;
       saveState();
       updateUI();
+      updateStartButton();
       timerInt = setInterval(() => {
         remainingTime--;
         updateUI();
@@ -606,17 +656,31 @@
           periodStart = null;
           actionedInPeriod = 0;
           hasActioned = false;
+
+          const shouldAutoResume = !manuallyPaused;
+
+          paused = true;
+          manuallyPaused = false;
           saveState();
           updateUI();
-          setTimeout(() => {
-            if (startBtn.textContent === 'Start') startBtn.click();
-          }, 1000);
+          updateStartButton();
+
+          if (shouldAutoResume) {
+            setTimeout(() => {
+              if (startBtn.textContent === 'Start' || startBtn.textContent === 'Paused') {
+                startBtn.click();
+              }
+            }, 1200);
+          }
         }
       }, 1000);
     }
 
     function updateUI() {
-      actionCountSpan.textContent = `${actionedInPeriod}/${UF_MAX_PER_PERIOD}`;
+      const currentMaxUnfollow = UF_MAX_PER_PERIOD;
+      const currentMaxScan = parseInt(localStorage.getItem('um_sc_max_scan')) || SC_MAX_UNFOLLOW;
+
+      actionCountSpan.textContent = `${actionedInPeriod}/${currentMaxUnfollow}`;
       if (hasActioned) {
         const h = String(Math.floor(remainingTime / 3600)).padStart(2, '0');
         const m = String(Math.floor((remainingTime % 3600) / 60)).padStart(2, '0');
@@ -625,7 +689,29 @@
       } else {
         timerSpan.textContent = ' 00:00:00';
       }
-      scanCountSpan.textContent = `${total}/${SC_MAX_UNFOLLOW}`;
+      scanCountSpan.textContent = `${total}/${currentMaxScan}`;
+    }
+
+    function updateStartButton() {
+      const isMaxed = actionedInPeriod >= UF_MAX_PER_PERIOD;
+
+      if (isMaxed) {
+        startBtn.textContent = paused ? 'Paused' : 'Running';
+        startBtn.style.background = paused ? '#f44336' : '#4CAF50';
+        startBtn.style.cursor = 'pointer';
+      } else if (running && !paused) {
+        startBtn.textContent = 'Pause';
+        startBtn.style.background = '#4CAF50';
+        startBtn.style.cursor = 'pointer';
+      } else if (running && paused) {
+        startBtn.textContent = 'Paused';
+        startBtn.style.background = '#f44336';
+        startBtn.style.cursor = 'pointer';
+      } else {
+        startBtn.textContent = 'Start';
+        startBtn.style.background = '#f44336';
+        startBtn.style.cursor = 'pointer';
+      }
     }
 
     async function pauseWithCountdown(seconds) {
@@ -660,10 +746,11 @@
       for (let cell of batch) {
         if (paused) break;
         if (actionedInPeriod >= UF_MAX_PER_PERIOD) {
-          paused = true;
-          running = false;
-          startBtn.textContent = 'Start';
-          console.log('Max unfollows reached, stopping');
+          paused = false;           // ← Fixed: stays in Running state so you can still pause
+          running = true;
+          manuallyPaused = false;
+          updateStartButton();
+          console.log('Max unfollows reached this period → will auto-resume after cooldown');
           break;
         }
 
@@ -712,11 +799,12 @@
           if (actionedInPeriod === 1) startNewTimer();
           updateUI();
           saveState();
+          updateStartButton();
           console.log(`Unfollowed ${user}: ${reasons.join(', ')}`);
         } else {
           if (isRateLimited()) startNewTimer();
           cell.style.border = '2px solid orange';
-          console.log(`Failed to unfollow ${user}: rate limited or no confirm`);
+          console.log(`Failed to unfollow ${user}`);
         }
 
         await randomDelay();
@@ -727,21 +815,29 @@
     startBtn.onclick = async () => {
       if (running) {
         paused = !paused;
-        startBtn.textContent = paused ? 'Start' : 'Pause';
-        return;
-      }
-      if (actionedInPeriod >= UF_MAX_PER_PERIOD) {
-        console.log('Limit already reached in this period');
+        if (paused) {
+          manuallyPaused = true;
+        } else {
+          manuallyPaused = false;
+        }
+        updateStartButton();
         return;
       }
       running = true;
       paused = false;
-      startBtn.textContent = 'Pause';
+      manuallyPaused = false;
+      updateStartButton();
+
       let stuckCount = 0;
       let lastCellsCount = 0;
       let scanSincePause = 0;
       while (running) {
         if (paused) {
+          await new Promise(r => setTimeout(r, 300));
+          continue;
+        }
+        if (actionedInPeriod >= UF_MAX_PER_PERIOD) {
+          updateStartButton();
           await new Promise(r => setTimeout(r, 300));
           continue;
         }
@@ -757,7 +853,7 @@
         lastCellsCount = curr;
         if (stuckCount >= STUCK_THRESHOLD || total >= SC_MAX_UNFOLLOW) {
           running = false;
-          startBtn.textContent = 'Start';
+          updateStartButton();
           break;
         }
         window.scrollBy({ top: 800 });
@@ -766,6 +862,7 @@
     };
 
   } else {
+    // Follow Back mode
     const followUnvEnabled = getFollowUnv();
     modeLine.textContent = `Mode: Follow Back (${followUnvEnabled ? 'All' : (isVerified ? 'Verified' : 'Verified')} Followers)`;
 
