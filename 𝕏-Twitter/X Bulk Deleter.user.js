@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         X Bulk Deleter (Draggable + Persistent Delay + Progress)
+// @name         X Bulk Deleter
 // @match        https://x.com/*
 // @grant        none
 // @run-at       document-idle
