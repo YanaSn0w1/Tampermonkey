@@ -63,6 +63,6 @@
 - Download your X archives
 - Get the JSON with [X Archive Viewer](https://github.com/YanaSn0w1/Python/blob/main/Archive%20Viewer/x_viewer.md#paypal-donations-%EF%B8%8F "X Archive Viewer") ⬅️
 
-<img width="1600" height="852" alt="firefox_iBOg9VrVgA" src="https://github.com/user-attachments/assets/e5c21d8a-98ff-4ef2-a4b7-b977e73cbec6" />
+<img width="798" height="844" alt="firefox_xqNEl5QWwP" src="https://github.com/user-attachments/assets/2b152947-6337-4dc2-8fec-a3e27a0e52d1" />
 
 # [PayPal-Donations](https://www.paypal.com/donate/?hosted_button_id=9LWWH273HEVC4 "Donate to YanaHeat") ⬅️
