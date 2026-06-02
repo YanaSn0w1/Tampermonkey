@@ -5,7 +5,7 @@
 # Description
 ## Mode 1:
 - Will follow back up to 14 every 15 minutes.
-- Will skip default pic, no bio and keywords if enabled.
+- Will skip default pic, no bio, keywords and unverified if enabled.
 ## Mode 2:
 - Unfollow same as above + non mutual.
 
