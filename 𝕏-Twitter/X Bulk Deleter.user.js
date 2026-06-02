@@ -20,7 +20,6 @@
 
   function saveState() {
     try {
-      // Always save session state
       sessionStorage.setItem('bulkDeleter_state', JSON.stringify({
         postList: window.postList,
         currentIndex: window.currentIndex,
@@ -30,7 +29,6 @@
         rememberProgress: window.rememberProgress
       }));
 
-      // Persistent save to localStorage when enabled
       if (window.rememberProgress) {
         localStorage.setItem('bulkDeleter_persistent', JSON.stringify({
           postList: window.postList,
@@ -45,7 +43,6 @@
 
   function loadState() {
     try {
-      // Load from localStorage first if remember is enabled
       const persistent = localStorage.getItem('bulkDeleter_persistent');
       if (persistent) {
         const d = JSON.parse(persistent);
@@ -59,7 +56,6 @@
         if (typeof d.goBackwards === 'boolean') window.goBackwards = d.goBackwards;
       }
 
-      // Also load from sessionStorage (takes priority for current tab)
       const raw = sessionStorage.getItem('bulkDeleter_state');
       if (raw) {
         const s = JSON.parse(raw);
@@ -74,7 +70,6 @@
         if (typeof s.rememberProgress === 'boolean') window.rememberProgress = s.rememberProgress;
       }
 
-      // Load individual settings from localStorage
       const savedDelay = localStorage.getItem('bulkDeleter_delay');
       if (savedDelay) window.delaySeconds = parseFloat(savedDelay);
 
@@ -365,16 +360,31 @@
 
     loadBtn.addEventListener('click', () => fileInput.click());
 
+    // ==================== FIXED START AT ====================
     startAtBtn.addEventListener('click', () => {
-      if (!window.postList.length) return alert('Load a file first');
-      const val = Math.max(1, parseInt(startAtInput.value) || 1);
-      window.currentIndex = Math.min(val - 1, window.postList.length - 1);
+      if (!window.postList.length) {
+        return alert('Load a file first');
+      }
+
+      const input = document.getElementById('startAtInput');
+      if (!input) return;
+
+      const val = Math.max(1, parseInt(input.value) || 1);
+      const targetIndex = Math.min(val - 1, window.postList.length - 1);
+
+      window.currentIndex = targetIndex;
+      window.paused = true;           // Force pause after jumping
       saveState();
       localUpdateUI();
-      navigateTo(window.postList[window.currentIndex]).then(ok => { if (ok) setTimeout(processPage, 600); });
+
+      statusEl.textContent = `Jumped to #${val}`;
+
+      navigateTo(window.postList[window.currentIndex]);
     });
 
-    startAtInput.addEventListener('keydown', e => { if (e.key === 'Enter') startAtBtn.click(); });
+    startAtInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') startAtBtn.click();
+    });
 
     delayInputEl.addEventListener('change', () => {
       window.delaySeconds = parseFloat(delayInputEl.value) || 6;
@@ -395,7 +405,7 @@
       if (!window.rememberProgress) {
         localStorage.removeItem('bulkDeleter_persistent');
       } else {
-        saveState(); // immediately save current progress
+        saveState();
       }
     });
 
