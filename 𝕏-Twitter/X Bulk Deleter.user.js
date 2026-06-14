@@ -8,7 +8,6 @@
 (function () {
   'use strict';
 
-  // --- state ---
   window.postList = window.postList || [];
   window.currentIndex = 0;
   window.jsonLoaded = false;
@@ -19,57 +18,34 @@
   window.currentFileName = '';
   window.currentUsername = '';
   window.rememberProgress = false;
-
-  // batchSize counts "links opened" (navigations to posts)
   window.batchSize = 150;
   window.pauseMinutes = 15;
-
-  // deletionCounter = links opened in current batch (resets when timer hits 00:00 or manual batch reset)
   window.deletionCounter = 0;
-
-  // totalDeleted = actual confirmed deletions (persistent)
   window.totalDeleted = 0;
-
-  // track last index that was counted as "link opened" to avoid double-counting
   window._lastCountedIndex = null;
-
-  // flag set when a navigation caused the batch limit to be reached
   window._batchLimitReached = false;
 
-  // timer/timeout handles and remaining seconds
-  let _pauseIntervalHandle = null;
-  let _autoResumeTimeoutHandle = null;
-  window._pauseTimeRemainingSeconds = null;
-  window._timerRunning = false;           // ← RUNTIME ONLY (never saved to storage)
-  window._timerSetWaitingForLink = false;
+  // Timer state — simple:
+  // _countdownSeconds = null means "not started yet this batch"
+  // _countdownSeconds > 0 means "counting down"
+  // _countdownSeconds = 0 means "just finished"
+  window._countdownSeconds = null;
+  let _intervalHandle = null; // THE only interval. Never touched by Stop/Start.
 
-  // --- persistence keys ---
   const PERSIST_KEYS = {
-    state: 'bulkDeleter_state',
-    persistent: 'bulkDeleter_persistent',
-    totalDeleted: 'bulkDeleter_totalDeleted',
-    delay: 'bulkDeleter_delay',
-    reverse: 'bulkDeleter_reverse',
-    remember: 'bulkDeleter_remember',
-    batchSize: 'bulkDeleter_batchSize',
-    pauseMinutes: 'bulkDeleter_pauseMinutes',
-    pauseRemaining: 'bulkDeleter_pauseRemaining',
-    timerSetWaiting: 'bulkDeleter_timerSetWaiting',
-    deletionCounter: 'bulkDeleter_deletionCounter'
+    state:          'bulkDeleter_state',
+    persistent:     'bulkDeleter_persistent',
+    totalDeleted:   'bulkDeleter_totalDeleted',
+    delay:          'bulkDeleter_delay',
+    reverse:        'bulkDeleter_reverse',
+    remember:       'bulkDeleter_remember',
+    batchSize:      'bulkDeleter_batchSize',
+    pauseMinutes:   'bulkDeleter_pauseMinutes',
+    countdown:      'bulkDeleter_countdown',
+    deletionCounter:'bulkDeleter_deletionCounter',
   };
 
-  // --- persistence helpers ---
-  function persistTimerRemaining() {
-    try {
-      if (typeof window._pauseTimeRemainingSeconds === 'number') {
-        localStorage.setItem(PERSIST_KEYS.pauseRemaining, String(window._pauseTimeRemainingSeconds));
-      } else {
-        localStorage.removeItem(PERSIST_KEYS.pauseRemaining);
-      }
-      localStorage.setItem(PERSIST_KEYS.timerSetWaiting, window._timerSetWaitingForLink ? '1' : '0');
-      localStorage.setItem(PERSIST_KEYS.deletionCounter, String(window.deletionCounter));
-    } catch (e) {}
-  }
+  // ── persistence ──────────────────────────────────────────────────────────
 
   function saveState() {
     try {
@@ -89,9 +65,7 @@
         jsonLoaded: window.jsonLoaded,
         _lastCountedIndex: window._lastCountedIndex,
         _batchLimitReached: window._batchLimitReached,
-        _pauseTimeRemainingSeconds: window._pauseTimeRemainingSeconds,
-        _timerSetWaitingForLink: window._timerSetWaitingForLink
-        // _timerRunning is deliberately omitted — it is runtime-only
+        _countdownSeconds: window._countdownSeconds,
       }));
       if (window.rememberProgress) {
         localStorage.setItem(PERSIST_KEYS.persistent, JSON.stringify({
@@ -104,11 +78,17 @@
           pauseMinutes: window.pauseMinutes,
           deletionCounter: window.deletionCounter,
           totalDeleted: window.totalDeleted,
-          _lastCountedIndex: window._lastCountedIndex
+          _lastCountedIndex: window._lastCountedIndex,
         }));
       }
       localStorage.setItem(PERSIST_KEYS.totalDeleted, String(window.totalDeleted));
-      persistTimerRemaining();
+      // Persist countdown so it survives page navigations
+      if (window._countdownSeconds !== null) {
+        localStorage.setItem(PERSIST_KEYS.countdown, String(window._countdownSeconds));
+      } else {
+        localStorage.removeItem(PERSIST_KEYS.countdown);
+      }
+      localStorage.setItem(PERSIST_KEYS.deletionCounter, String(window.deletionCounter));
     } catch (e) {}
   }
 
@@ -143,57 +123,31 @@
         if (typeof s.paused === 'boolean') window.paused = s.paused;
         if (typeof s.manuallyPaused === 'boolean') window.manuallyPaused = s.manuallyPaused;
         if (typeof s.jsonLoaded === 'boolean') window.jsonLoaded = s.jsonLoaded;
-        if (typeof s._lastCountedIndex !== 'undefined') window._lastCountedIndex = s._lastCountedIndex;
-        if (typeof s._batchLimitReached !== 'undefined') window._batchLimitReached = s._batchLimitReached;
-        if (typeof s._pauseTimeRemainingSeconds !== 'undefined') window._pauseTimeRemainingSeconds = s._pauseTimeRemainingSeconds;
-        if (typeof s._timerSetWaitingForLink !== 'undefined') window._timerSetWaitingForLink = s._timerSetWaitingForLink;
+        if (s._lastCountedIndex !== undefined) window._lastCountedIndex = s._lastCountedIndex;
+        if (s._batchLimitReached !== undefined) window._batchLimitReached = s._batchLimitReached;
+        if (s._countdownSeconds !== undefined) window._countdownSeconds = s._countdownSeconds;
       }
 
-      const savedDelay = localStorage.getItem(PERSIST_KEYS.delay);
-      if (savedDelay) window.delaySeconds = parseFloat(savedDelay);
-
-      const savedReverse = localStorage.getItem(PERSIST_KEYS.reverse);
-      if (savedReverse !== null) window.goBackwards = savedReverse === 'true';
-
-      const savedRemember = localStorage.getItem(PERSIST_KEYS.remember);
-      if (savedRemember !== null) window.rememberProgress = savedRemember === 'true';
-
-      const savedBatch = localStorage.getItem(PERSIST_KEYS.batchSize);
-      if (savedBatch) window.batchSize = parseInt(savedBatch);
-
-      const savedPause = localStorage.getItem(PERSIST_KEYS.pauseMinutes);
-      if (savedPause) window.pauseMinutes = parseInt(savedPause);
-
-      const savedTotal = localStorage.getItem(PERSIST_KEYS.totalDeleted);
-      if (savedTotal !== null) window.totalDeleted = parseInt(savedTotal) || 0;
-
-      const savedRemaining = localStorage.getItem(PERSIST_KEYS.pauseRemaining);
-      if (savedRemaining !== null) {
-        window._pauseTimeRemainingSeconds = parseInt(savedRemaining);
+      // localStorage overrides (survive hard reloads)
+      const sv = localStorage.getItem(PERSIST_KEYS.delay);        if (sv) window.delaySeconds = parseFloat(sv);
+      const sr = localStorage.getItem(PERSIST_KEYS.reverse);      if (sr !== null) window.goBackwards = sr === 'true';
+      const sm = localStorage.getItem(PERSIST_KEYS.remember);     if (sm !== null) window.rememberProgress = sm === 'true';
+      const sb = localStorage.getItem(PERSIST_KEYS.batchSize);    if (sb) window.batchSize = parseInt(sb);
+      const sp = localStorage.getItem(PERSIST_KEYS.pauseMinutes); if (sp) window.pauseMinutes = parseInt(sp);
+      const st = localStorage.getItem(PERSIST_KEYS.totalDeleted); if (st !== null) window.totalDeleted = parseInt(st) || 0;
+      const sc = localStorage.getItem(PERSIST_KEYS.countdown);
+      if (sc !== null) {
+        const parsed = parseInt(sc);
+        // Only restore if it's a valid positive number (a running countdown)
+        window._countdownSeconds = (!isNaN(parsed) && parsed > 0) ? parsed : null;
       }
-
-      const savedTimerSet = localStorage.getItem(PERSIST_KEYS.timerSetWaiting);
-      if (savedTimerSet !== null) window._timerSetWaitingForLink = savedTimerSet === '1';
-
-      const savedDeletionCounter = localStorage.getItem(PERSIST_KEYS.deletionCounter);
-      if (savedDeletionCounter !== null) {
-        window.deletionCounter = parseInt(savedDeletionCounter) || 0;
-      }
-
-      if (window.deletionCounter >= window.batchSize && (window._pauseTimeRemainingSeconds == null) && !window._timerSetWaitingForLink) {
-        window._pauseTimeRemainingSeconds = Math.max(1, Math.floor(window.pauseMinutes * 60));
-        window._timerSetWaitingForLink = true;
-        window.paused = true;
-        window.manuallyPaused = false;
-        try {
-          localStorage.setItem(PERSIST_KEYS.pauseRemaining, String(window._pauseTimeRemainingSeconds));
-          localStorage.setItem(PERSIST_KEYS.timerSetWaiting, '1');
-        } catch (e) {}
-      }
+      const sdc = localStorage.getItem(PERSIST_KEYS.deletionCounter);
+      if (sdc !== null) window.deletionCounter = parseInt(sdc) || 0;
     } catch (e) {}
   }
 
-  // --- helpers ---
+  // ── helpers ──────────────────────────────────────────────────────────────
+
   function isErrorPage() {
     return document.body.innerText.includes("this page doesn't exist") ||
            document.body.innerText.includes("Hmm...this page doesn't exist");
@@ -212,130 +166,106 @@
     return null;
   }
 
-  // --- UI updates ---
+  // ── UI ───────────────────────────────────────────────────────────────────
+
   function updateBatchCounter() {
     const el = document.getElementById('batchCounter');
     if (el) el.textContent = `${window.deletionCounter}/${window.batchSize}`;
-    const totalRight = document.getElementById('totalCounterRight');
-    if (totalRight) totalRight.textContent = `Total: ${window.totalDeleted}`;
+    const tot = document.getElementById('totalCounterRight');
+    if (tot) tot.textContent = `Total: ${window.totalDeleted}`;
   }
 
-  function updatePauseTimerDisplayText(minutes, seconds) {
-    const timerEl = document.getElementById('pauseTimer');
-    if (!timerEl) return;
-    if (typeof minutes === 'undefined') {
-      timerEl.textContent = `${window.pauseMinutes}:00`;
+  function renderTimer() {
+    const el = document.getElementById('pauseTimer');
+    if (!el) return;
+    if (window._countdownSeconds !== null && window._countdownSeconds > 0) {
+      const m = Math.floor(window._countdownSeconds / 60);
+      const s = window._countdownSeconds % 60;
+      el.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
     } else {
-      timerEl.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+      // Not started — show configured time as a preview
+      el.textContent = `${window.pauseMinutes}:00`;
     }
   }
 
-  // --- timer and auto-resume helpers ---
-  function _clearTimerHandles() {
-    if (_pauseIntervalHandle) { clearInterval(_pauseIntervalHandle); _pauseIntervalHandle = null; }
-    if (_autoResumeTimeoutHandle) { clearTimeout(_autoResumeTimeoutHandle); _autoResumeTimeoutHandle = null; }
-    window._timerRunning = false;
-  }
+  // ── Countdown — the ONLY interval ────────────────────────────────────────
+  // Rules:
+  //   • Started exactly once: when the first link of a batch is opened.
+  //   • Counts down every second regardless of pause/resume state.
+  //   • Cleared only by: reaching 0, or an explicit hard reset.
+  //   • Stop/Start button NEVER touches this.
 
-  function startVisiblePauseTimerIfNeeded() {
-    if (window._timerRunning) return;
-    if (typeof window._pauseTimeRemainingSeconds !== 'number' || window._pauseTimeRemainingSeconds <= 0) {
-      window._pauseTimeRemainingSeconds = Math.max(1, Math.floor(window.pauseMinutes * 60));
+  function startCountdown() {
+    if (_intervalHandle !== null) return; // already running — never double-start
+    if (window._countdownSeconds === null || window._countdownSeconds <= 0) {
+      window._countdownSeconds = Math.floor(window.pauseMinutes * 60);
     }
-
-    persistTimerRemaining();
-
-    window._timerRunning = true;
-    updatePauseTimerDisplayText(Math.floor(window._pauseTimeRemainingSeconds / 60), window._pauseTimeRemainingSeconds % 60);
-
-    _pauseIntervalHandle = setInterval(() => {
-      window._pauseTimeRemainingSeconds--;
-      if (window._pauseTimeRemainingSeconds <= 0) {
-        clearInterval(_pauseIntervalHandle);
-        _pauseIntervalHandle = null;
-        window._timerRunning = false;
-        persistTimerRemaining();
-        onPauseTimerExpired();
-        return;
+    renderTimer();
+    _intervalHandle = setInterval(() => {
+      window._countdownSeconds--;
+      renderTimer();
+      try { localStorage.setItem(PERSIST_KEYS.countdown, String(window._countdownSeconds)); } catch(e) {}
+      if (window._countdownSeconds <= 0) {
+        clearInterval(_intervalHandle);
+        _intervalHandle = null;
+        onCountdownDone();
       }
-      updatePauseTimerDisplayText(Math.floor(window._pauseTimeRemainingSeconds / 60), window._pauseTimeRemainingSeconds % 60);
-      try { localStorage.setItem(PERSIST_KEYS.pauseRemaining, String(window._pauseTimeRemainingSeconds)); } catch (e) {}
     }, 1000);
   }
 
-  function scheduleAutoResumeUsingRemaining() {
-    if (_autoResumeTimeoutHandle) { clearTimeout(_autoResumeTimeoutHandle); _autoResumeTimeoutHandle = null; }
-
-    const seconds = (window._timerRunning && typeof window._pauseTimeRemainingSeconds === 'number')
-      ? window._pauseTimeRemainingSeconds
-      : Math.max(1, Math.floor(window.pauseMinutes * 60));
-
-    if (!window._timerRunning) {
-      window._pauseTimeRemainingSeconds = seconds;
-      window._timerRunning = true;
-      updatePauseTimerDisplayText(Math.floor(seconds / 60), seconds % 60);
-      _pauseIntervalHandle = setInterval(() => {
-        window._pauseTimeRemainingSeconds--;
-        if (window._pauseTimeRemainingSeconds <= 0) {
-          clearInterval(_pauseIntervalHandle);
-          _pauseIntervalHandle = null;
-          window._timerRunning = false;
-          onPauseTimerExpired();
-          return;
-        }
-        updatePauseTimerDisplayText(Math.floor(window._pauseTimeRemainingSeconds / 60), window._pauseTimeRemainingSeconds % 60);
-        try { localStorage.setItem(PERSIST_KEYS.pauseRemaining, String(window._pauseTimeRemainingSeconds)); } catch (e) {}
-      }, 1000);
-    }
-
-    _autoResumeTimeoutHandle = setTimeout(() => {
-      _autoResumeTimeoutHandle = null;
-      onPauseTimerExpired();
-    }, seconds * 1000);
-
-    persistTimerRemaining();
+  function stopCountdownHard() {
+    // Only for resets — not for pause/resume
+    if (_intervalHandle !== null) { clearInterval(_intervalHandle); _intervalHandle = null; }
+    window._countdownSeconds = null;
+    try { localStorage.removeItem(PERSIST_KEYS.countdown); } catch(e) {}
+    renderTimer();
   }
 
-  async function onPauseTimerExpired() {
-    if (_pauseIntervalHandle) { clearInterval(_pauseIntervalHandle); _pauseIntervalHandle = null; }
-    if (_autoResumeTimeoutHandle) { clearTimeout(_autoResumeTimeoutHandle); _autoResumeTimeoutHandle = null; }
-    window._timerRunning = false;
-    window._pauseTimeRemainingSeconds = 0;
-    window._timerSetWaitingForLink = false;
-    try { localStorage.removeItem(PERSIST_KEYS.pauseRemaining); } catch (e) {}
-    try { localStorage.setItem(PERSIST_KEYS.timerSetWaiting, '0'); } catch (e) {}
-
+  async function onCountdownDone() {
+    window._countdownSeconds = null;
     window.deletionCounter = 0;
     window._lastCountedIndex = null;
     window._batchLimitReached = false;
+    try { localStorage.removeItem(PERSIST_KEYS.countdown); } catch(e) {}
+    localStorage.setItem(PERSIST_KEYS.deletionCounter, '0');
     updateBatchCounter();
-    updatePauseTimerDisplayText(0, 0);
+    renderTimer();
     saveState();
 
     if (window.paused && !window.manuallyPaused) {
+      // Was auto-paused — resume automatically
       window.paused = false;
       window.manuallyPaused = false;
       saveState();
-
-      const toggleBtn = document.getElementById('toggleBtn');
-      const statusEl = document.getElementById('status');
-      if (toggleBtn) { toggleBtn.textContent = '⏸ Pause'; toggleBtn.style.background = '#22c55e'; }
-      if (statusEl) statusEl.textContent = `Auto-pause finished — resuming...`;
-
+      const btn = document.getElementById('toggleBtn');
+      const st  = document.getElementById('status');
+      if (btn) { btn.textContent = '⏸ Pause'; btn.style.background = '#22c55e'; }
+      if (st)  st.textContent = 'Auto-pause finished — resuming...';
       if (location.href.includes('/status/')) {
         setTimeout(processPage, 400);
       } else {
-        safeNavigateAndCount(window.postList[window.currentIndex]).then(ok => {
-          if (ok) setTimeout(processPage, 600);
-        });
+        const ok = await safeNavigateAndCount(window.postList[window.currentIndex]);
+        if (ok) setTimeout(processPage, 600);
       }
     } else {
-      const statusEl = document.getElementById('status');
-      if (statusEl) statusEl.textContent = `Paused (manual) — timer expired`;
+      const st = document.getElementById('status');
+      if (st) st.textContent = 'Timer done — batch reset. Press Start to continue.';
+      const btn = document.getElementById('toggleBtn');
+      if (btn) { btn.textContent = '▶ Start'; btn.style.background = '#ef4444'; }
     }
   }
 
-  // --- navigation and counting ---
+  // Called on every link open — starts the countdown on the very first one
+  function onLinkOpened() {
+    if (_intervalHandle === null && window._countdownSeconds === null) {
+      // First link of this batch — start the clock
+      startCountdown();
+    }
+    // If interval already running, do nothing — it keeps going
+  }
+
+  // ── navigation ───────────────────────────────────────────────────────────
+
   async function navigateTo(url) {
     if (!url) return false;
     try {
@@ -350,8 +280,8 @@
     document.body.appendChild(a);
     try {
       a.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true }));
-      a.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
-      a.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+      a.dispatchEvent(new PointerEvent('pointerup',   { bubbles: true, composed: true }));
+      a.dispatchEvent(new MouseEvent('click',          { bubbles: true, composed: true }));
     } catch (e) { a.click(); }
     setTimeout(() => a.remove(), 200);
     await new Promise(r => setTimeout(r, 1300));
@@ -371,65 +301,38 @@
       window.deletionCounter++;
       window._lastCountedIndex = window.currentIndex;
       updateBatchCounter();
+      onLinkOpened();
       saveState();
-
-      if (window._timerSetWaitingForLink) {
-        startVisiblePauseTimerIfNeeded();
-        scheduleAutoResumeUsingRemaining();
-        window._timerSetWaitingForLink = false;
-        try { localStorage.setItem(PERSIST_KEYS.timerSetWaiting, '0'); } catch (e) {}
-      }
-
-      if (window.deletionCounter === 1 && !window._timerRunning && !window._timerSetWaitingForLink) {
-        startVisiblePauseTimerIfNeeded();
-      }
-
       return true;
-    } catch (e) {
-      return false;
-    }
+    } catch (e) { return false; }
   }
 
   async function safeNavigateAndCount(url) {
     if (!url) return false;
-
     if (window.deletionCounter >= window.batchSize) {
       await triggerAutoPause();
       return false;
     }
-
     const ok = await navigateTo(url);
     if (!ok) return false;
-
     if (window._lastCountedIndex !== window.currentIndex) {
       window.deletionCounter++;
       window._lastCountedIndex = window.currentIndex;
       updateBatchCounter();
-
-      if (window._timerSetWaitingForLink) {
-        startVisiblePauseTimerIfNeeded();
-        scheduleAutoResumeUsingRemaining();
-        window._timerSetWaitingForLink = false;
-        try { localStorage.setItem(PERSIST_KEYS.timerSetWaiting, '0'); } catch (e) {}
-      }
-
-      if (window.deletionCounter === 1 && !window._timerRunning && !window._timerSetWaitingForLink) {
-        startVisiblePauseTimerIfNeeded();
-      }
-
-      if (window.deletionCounter >= window.batchSize) {
-        window._batchLimitReached = true;
-      }
+      onLinkOpened();
+      if (window.deletionCounter >= window.batchSize) window._batchLimitReached = true;
     }
     saveState();
     return true;
   }
 
+  // ── deletion flow ────────────────────────────────────────────────────────
+
   function getMyReplies() {
     if (!location.href.includes('/status/') || !window.currentUsername || isErrorPage()) return [];
     const tweets = document.querySelectorAll('article[data-testid="tweet"]');
     if (!tweets.length) return [];
-    const myHandle = '@' + window.currentUsername;
+    const myHandle  = '@' + window.currentUsername;
     const myProfile = '/' + window.currentUsername;
     let mine = [];
     for (let t of tweets) {
@@ -443,9 +346,8 @@
     return [];
   }
 
-  // --- deletion flow ---
   async function deleteRepliesOnPage() {
-    let deletedOnThisPage = 0;
+    let deleted = 0;
     while (true) {
       if (window.paused || isErrorPage()) break;
       const replies = getMyReplies();
@@ -465,40 +367,30 @@
       const confirmBtn = document.querySelector('[data-testid="confirmationSheetConfirm"]');
       if (confirmBtn) confirmBtn.click();
       await new Promise(r => setTimeout(r, 1100));
-
       window.totalDeleted++;
-      deletedOnThisPage++;
-      try { localStorage.setItem(PERSIST_KEYS.totalDeleted, String(window.totalDeleted)); } catch (e) {}
+      deleted++;
+      try { localStorage.setItem(PERSIST_KEYS.totalDeleted, String(window.totalDeleted)); } catch(e) {}
       updateBatchCounter();
     }
-
-    if (window._batchLimitReached) {
-      await triggerAutoPause();
-    }
-
+    if (window._batchLimitReached) await triggerAutoPause();
     saveState();
-    return deletedOnThisPage;
+    return deleted;
   }
 
   async function triggerAutoPause() {
     if (window.paused) return;
-
     window.paused = true;
     window.manuallyPaused = false;
     saveState();
-
-    const toggleBtn = document.getElementById('toggleBtn');
-    const statusEl = document.getElementById('status');
-    if (toggleBtn) { toggleBtn.textContent = `⏸ Auto-paused (${window.pauseMinutes} min)`; toggleBtn.style.background = '#f59e0b'; }
-    if (statusEl) statusEl.textContent = `Rate limit protection: Auto-paused`;
-
-    scheduleAutoResumeUsingRemaining();
+    const btn = document.getElementById('toggleBtn');
+    const st  = document.getElementById('status');
+    if (btn) { btn.textContent = `⏸ Auto-paused`; btn.style.background = '#f59e0b'; }
+    if (st)  st.textContent = 'Rate limit protection: auto-paused. Timer counting down.';
+    // Countdown is already running from when the first link opened — nothing to do here
   }
 
-  // --- main processing flow ---
   async function processPage() {
     await countCurrentAsOpenedIfNeeded();
-
     if (!location.href.includes('/status/') || window.paused) return;
     if (isErrorPage()) { await advance(); return; }
     await deleteRepliesOnPage();
@@ -511,12 +403,11 @@
     if (nextIndex < 0 || nextIndex >= window.postList.length) {
       window.paused = true;
       saveState();
-      const toggleBtn = document.getElementById('toggleBtn');
-      const progressEl = document.getElementById('progress');
-      if (toggleBtn) { toggleBtn.textContent = '▶ Start'; toggleBtn.style.background = '#ef4444'; }
-      if (progressEl && window.postList.length) progressEl.textContent = `${window.currentIndex + 1}/${window.postList.length}`;
-      const atEnd = !window.goBackwards;
-      const msg = atEnd
+      const btn  = document.getElementById('toggleBtn');
+      const prog = document.getElementById('progress');
+      if (btn)  { btn.textContent = '▶ Start'; btn.style.background = '#ef4444'; }
+      if (prog && window.postList.length) prog.textContent = `${window.currentIndex + 1}/${window.postList.length}`;
+      const msg = !window.goBackwards
         ? `Reached the END of the list (${window.postList.length} posts).\n\nClick OK to wrap around...`
         : `Reached the BEGINNING of the list.\n\nClick OK to wrap around...`;
       if (confirm(msg)) {
@@ -524,86 +415,61 @@
         window.paused = false;
         window.manuallyPaused = false;
         saveState();
-        if (toggleBtn) { toggleBtn.textContent = '⏸ Pause'; toggleBtn.style.background = '#22c55e'; }
-        if (progressEl) progressEl.textContent = `${window.currentIndex + 1}/${window.postList.length}`;
+        if (btn)  { btn.textContent = '⏸ Pause'; btn.style.background = '#22c55e'; }
+        if (prog)   prog.textContent = `${window.currentIndex + 1}/${window.postList.length}`;
         const ok = await safeNavigateAndCount(window.postList[window.currentIndex]);
         if (ok) setTimeout(processPage, 600);
       }
       return;
     }
-
     window.currentIndex = nextIndex;
-    const progressEl = document.getElementById('progress');
-    if (progressEl) progressEl.textContent = `${window.currentIndex + 1}/${window.postList.length}`;
+    const prog = document.getElementById('progress');
+    if (prog) prog.textContent = `${window.currentIndex + 1}/${window.postList.length}`;
     saveState();
-
     await new Promise(r => setTimeout(r, (window.delaySeconds || 6) * 1000));
-
     if (!window.paused) {
       const ok = await safeNavigateAndCount(window.postList[window.currentIndex]);
       if (ok) setTimeout(processPage, 600);
     }
   }
 
-  // --- manual reset helpers ---
-  function resetBatchCounter() {
+  // ── reset helpers ────────────────────────────────────────────────────────
+
+  function resetBatchCounterOnly() {
     window.deletionCounter = 0;
     window._lastCountedIndex = null;
     window._batchLimitReached = false;
+    localStorage.setItem(PERSIST_KEYS.deletionCounter, '0');
     updateBatchCounter();
     saveState();
-    persistTimerRemaining();
   }
 
-  function resetPauseTimerAndSetWaiting() {
-    if (_pauseIntervalHandle) { clearInterval(_pauseIntervalHandle); _pauseIntervalHandle = null; }
-    if (_autoResumeTimeoutHandle) { clearTimeout(_autoResumeTimeoutHandle); _autoResumeTimeoutHandle = null; }
-
+  function resetTimerAndBatch() {
+    // Hard reset: kills countdown, clears batch, ready for next link to start fresh
+    stopCountdownHard();
     window.deletionCounter = 0;
     window._lastCountedIndex = null;
     window._batchLimitReached = false;
-
-    window._pauseTimeRemainingSeconds = Math.max(1, Math.floor(window.pauseMinutes * 60));
-    window._timerRunning = false;
-    window._timerSetWaitingForLink = true;
-
-    persistTimerRemaining();
-
-    window.paused = true;
-    window.manuallyPaused = false;
-
+    localStorage.setItem(PERSIST_KEYS.deletionCounter, '0');
     updateBatchCounter();
-    updatePauseTimerDisplayText(Math.floor(window._pauseTimeRemainingSeconds / 60), window._pauseTimeRemainingSeconds % 60);
     saveState();
   }
 
   function resetTotalCounter() {
     window.totalDeleted = 0;
-    try { localStorage.setItem(PERSIST_KEYS.totalDeleted, '0'); } catch (e) {}
+    try { localStorage.setItem(PERSIST_KEYS.totalDeleted, '0'); } catch(e) {}
     updateBatchCounter();
     saveState();
   }
 
-  function resetPauseTimerOnly() {
-    if (_autoResumeTimeoutHandle) { clearTimeout(_autoResumeTimeoutHandle); _autoResumeTimeoutHandle = null; }
-    if (_pauseIntervalHandle) { clearInterval(_pauseIntervalHandle); _pauseIntervalHandle = null; }
-    window._timerRunning = false;
-    window._pauseTimeRemainingSeconds = null;
-    window._timerSetWaitingForLink = false;
-    try { localStorage.removeItem(PERSIST_KEYS.pauseRemaining); } catch (e) {}
-    try { localStorage.setItem(PERSIST_KEYS.timerSetWaiting, '0'); } catch (e) {}
-    updatePauseTimerDisplayText();
-    saveState();
-  }
+  // ── UI creation ──────────────────────────────────────────────────────────
 
-  // --- UI creation ---
   function createPanel() {
     if (document.getElementById('x-bulk-panel')) return;
 
     const p = document.createElement('div');
     p.id = 'x-bulk-panel';
     p.style.cssText = 'position:fixed;top:20px;right:20px;width:460px;background:#111827;color:white;padding:14px;border-radius:12px;z-index:2147483647;font-family:sans-serif;opacity:0.95;box-shadow:0 10px 30px rgba(0,0,0,0.6);box-sizing:border-box;';
-
     p.innerHTML = `
       <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
         <b>X Bulk Deleter</b> <span id="progress" style="color:#9ca3af;font-size:12px;"></span>
@@ -612,92 +478,73 @@
         <div id="status">Load first file to begin</div>
         <div style="margin:6px 0;font-size:12px;color:#9ca3af;">Current file: <span id="fileDisplay" style="color:#60a5fa;font-weight:bold;">—</span></div>
       </div>
-
       <button id="loadBtn" style="width:100%;padding:11px;margin-bottom:8px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;">Load JSON File</button>
       <input type="file" id="fileInput" accept=".json" style="display:none;">
-
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
         <button id="startAtBtn" style="padding:6px 12px;background:#374151;color:white;border:none;border-radius:6px;font-size:12px;">Start at</button>
         <input id="startAtInput" type="number" value="1" style="width:80px;background:#374151;color:white;border:1px solid #4b5563;border-radius:6px;padding:4px 6px;">
       </div>
-
       <button id="toggleBtn" style="width:100%;padding:13px;background:#ef4444;color:black;border:none;border-radius:8px;font-weight:bold;margin-bottom:10px;cursor:pointer;box-sizing:border-box;">▶ Start</button>
-
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
         <span style="font-size:12px;">Delay:</span>
         <input id="delayInput" type="number" step="0.5" min="1" value="6" style="width:70px;background:#374151;color:white;border:1px solid #4b5563;border-radius:6px;padding:4px 6px;">
         <span style="font-size:12px;color:#9ca3af;">sec</span>
         <span id="totalCounterRight" style="margin-left:auto;font-size:13px;color:#60a5fa;font-weight:bold;">Total: 0</span>
-        <button id="totalResetRight" title="Reset total" style="margin-left:8px;background:#374151;color:#fff;border:none;border-radius:6px;padding:4px 6px;font-size:12px;cursor:pointer;">Reset</button>
+        <button id="totalResetRight" style="margin-left:8px;background:#374151;color:#fff;border:none;border-radius:6px;padding:4px 6px;font-size:12px;cursor:pointer;">Reset</button>
       </div>
-
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
         <span style="font-size:12px;">Batch size:</span>
         <input id="batchInput" type="number" min="1" value="150" style="width:70px;background:#374151;color:white;border:1px solid #4b5563;border-radius:6px;padding:4px 6px;">
-        <span id="batchLabel" style="font-size:12px;color:#9ca3af;">links opened</span>
+        <span style="font-size:12px;color:#9ca3af;">links opened</span>
         <span id="batchCounter" style="margin-left:auto;font-size:15px;color:#60a5fa;font-weight:bold;">0/150</span>
-        <button id="batchReset" title="Reset batch counter" style="margin-left:8px;background:#374151;color:#fff;border:none;border-radius:6px;padding:4px 6px;font-size:12px;cursor:pointer;">Reset</button>
+        <button id="batchReset" style="margin-left:8px;background:#374151;color:#fff;border:none;border-radius:6px;padding:4px 6px;font-size:12px;cursor:pointer;">Reset</button>
       </div>
-
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
         <span style="font-size:12px;">Auto-pause for:</span>
         <input id="pauseMinInput" type="number" min="1" value="15" style="width:70px;background:#374151;color:white;border:1px solid #4b5563;border-radius:6px;padding:4px 6px;">
         <span style="font-size:12px;color:#9ca3af;">minutes</span>
         <span id="pauseTimer" style="margin-left:auto;font-size:15px;color:#f59e0b;font-weight:bold;">15:00</span>
-        <button id="pauseReset" title="Reset pause timer" style="margin-left:8px;background:#374151;color:#fff;border:none;border-radius:6px;padding:4px 6px;font-size:12px;cursor:pointer;">Reset</button>
+        <button id="timerReset" style="margin-left:8px;background:#374151;color:#fff;border:none;border-radius:6px;padding:4px 6px;font-size:12px;cursor:pointer;">Reset</button>
       </div>
-
       <button id="resetBtn" style="width:100%;padding:7px;background:#374151;color:#ccc;border:none;border-radius:6px;font-size:12px;margin-bottom:8px;">Reset Everything</button>
-
       <label style="font-size:12px;display:flex;align-items:center;gap:6px;color:#9ca3af;margin-bottom:3px;">
         <input type="checkbox" id="reverseCheck"> Go backwards
       </label>
       <label style="font-size:12px;display:flex;align-items:center;gap:6px;color:#9ca3af;">
         <input type="checkbox" id="rememberCheck"> Remember progress (persistent)
       </label>
-
       <button id="openStatusBtn" style="width:100%;padding:12px;margin-top:8px;background:#3b82f6;color:white;border:none;border-radius:8px;font-weight:600;">Open Status (tm)</button>
     `;
-
     document.body.appendChild(p);
 
-    const fileInput = p.querySelector('#fileInput');
-    const loadBtn = p.querySelector('#loadBtn');
-    const startAtBtn = p.querySelector('#startAtBtn');
-    const startAtInput = p.querySelector('#startAtInput');
-    const toggleBtn = p.querySelector('#toggleBtn');
-    const delayInputEl = p.querySelector('#delayInput');
-    const reverseCheckEl = p.querySelector('#reverseCheck');
-    const rememberCheckEl = p.querySelector('#rememberCheck');
-    const resetBtn = p.querySelector('#resetBtn');
-    const statusEl = p.querySelector('#status');
-    const fileDisplayEl = p.querySelector('#fileDisplay');
-    const progressEl = p.querySelector('#progress');
-    const batchInput = p.querySelector('#batchInput');
-    const pauseMinInput = p.querySelector('#pauseMinInput');
-    const openStatusBtn = p.querySelector('#openStatusBtn');
+    const $ = id => p.querySelector('#' + id);
+    const fileInput    = $('fileInput');
+    const toggleBtn    = $('toggleBtn');
+    const delayInputEl = $('delayInput');
+    const batchInput   = $('batchInput');
+    const pauseMinInput= $('pauseMinInput');
+    const reverseCheck = $('reverseCheck');
+    const rememberCheck= $('rememberCheck');
+    const statusEl     = $('status');
+    const fileDisplayEl= $('fileDisplay');
+    const progressEl   = $('progress');
 
-    const totalResetRight = p.querySelector('#totalResetRight');
-    const batchReset = p.querySelector('#batchReset');
-    const pauseReset = p.querySelector('#pauseReset');
+    reverseCheck.checked  = window.goBackwards;
+    rememberCheck.checked = window.rememberProgress;
+    delayInputEl.value    = window.delaySeconds;
+    batchInput.value      = window.batchSize;
+    pauseMinInput.value   = window.pauseMinutes;
 
-    reverseCheckEl.checked = window.goBackwards;
-    rememberCheckEl.checked = window.rememberProgress;
-    delayInputEl.value = window.delaySeconds;
-    batchInput.value = window.batchSize;
-    pauseMinInput.value = window.pauseMinutes;
-
-    function localUpdateUI() {
+    function syncUI() {
       fileDisplayEl.textContent = window.currentFileName || '—';
-      progressEl.textContent = window.postList.length ? `${window.currentIndex + 1}/${window.postList.length}` : '';
-      toggleBtn.textContent = window.paused ? '▶ Start' : '⏸ Pause';
-      toggleBtn.style.background = (!window.jsonLoaded || window.paused) ? '#ef4444' : '#22c55e';
+      progressEl.textContent    = window.postList.length ? `${window.currentIndex + 1}/${window.postList.length}` : '';
+      toggleBtn.textContent     = window.paused ? '▶ Start' : '⏸ Pause';
+      toggleBtn.style.background= (!window.jsonLoaded || window.paused) ? '#ef4444' : '#22c55e';
       updateBatchCounter();
-      updatePauseTimerDisplayText();
+      renderTimer();
     }
-    p._localUpdateUI = localUpdateUI;
 
-    // file load
+    // ── file load ──
     fileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -715,40 +562,36 @@
       }).filter(Boolean);
       if (!normalized.length) return alert('No valid URLs found');
 
-      window.postList = normalized;
+      stopCountdownHard(); // wipe any previous batch timer
+      window.postList        = normalized;
       window.currentFileName = file.name;
-      window.currentIndex = window.goBackwards ? window.postList.length - 1 : 0;
-      window.jsonLoaded = true;
-      window.paused = false;
-      window.manuallyPaused = false;
-      window._lastCountedIndex = null;
+      window.currentIndex    = window.goBackwards ? window.postList.length - 1 : 0;
+      window.jsonLoaded      = true;
+      window.paused          = false;
+      window.manuallyPaused  = false;
+      window._lastCountedIndex  = null;
       window._batchLimitReached = false;
+      window.deletionCounter    = 0;
       saveState();
-      localUpdateUI();
+      syncUI();
       statusEl.textContent = `Loaded ${window.postList.length} posts`;
-
       const ok = await safeNavigateAndCount(window.postList[window.currentIndex]);
-      if (ok) {
-        await countCurrentAsOpenedIfNeeded();
-        setTimeout(processPage, 700);
-      }
+      if (ok) setTimeout(processPage, 700);
     });
-    loadBtn.addEventListener('click', () => fileInput.click());
+    $('loadBtn').addEventListener('click', () => fileInput.click());
 
-    // start at
-    startAtBtn.addEventListener('click', () => {
+    // ── start at ──
+    $('startAtBtn').addEventListener('click', () => {
       if (!window.postList.length) return alert('Load a file first');
-      const val = Math.max(1, parseInt(startAtInput.value) || 1);
-      const targetIndex = Math.min(val - 1, window.postList.length - 1);
-      window.currentIndex = targetIndex;
-      window.paused = true;
+      const val = Math.max(1, parseInt($('startAtInput').value) || 1);
+      window.currentIndex   = Math.min(val - 1, window.postList.length - 1);
+      window.paused         = true;
       window.manuallyPaused = false;
-      saveState();
-      localUpdateUI();
+      saveState(); syncUI();
       statusEl.textContent = `Jumped to #${val}`;
       navigateTo(window.postList[window.currentIndex]);
     });
-    startAtInput.addEventListener('keydown', e => { if (e.key === 'Enter') startAtBtn.click(); });
+    $('startAtInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('startAtBtn').click(); });
 
     delayInputEl.addEventListener('change', () => {
       window.delaySeconds = parseFloat(delayInputEl.value) || 6;
@@ -758,109 +601,64 @@
     batchInput.addEventListener('change', () => {
       window.batchSize = parseInt(batchInput.value) || 150;
       localStorage.setItem(PERSIST_KEYS.batchSize, window.batchSize);
-      updateBatchCounter();
-      saveState();
+      updateBatchCounter(); saveState();
     });
-
     pauseMinInput.addEventListener('change', () => {
       window.pauseMinutes = parseInt(pauseMinInput.value) || 15;
       localStorage.setItem(PERSIST_KEYS.pauseMinutes, window.pauseMinutes);
-      updatePauseTimerDisplayText();
+      // Only update the preview display — never restart a running countdown
+      if (_intervalHandle === null) renderTimer();
       saveState();
-      if (window.paused && !window.manuallyPaused) {
-        if (_pauseIntervalHandle) { clearInterval(_pauseIntervalHandle); _pauseIntervalHandle = null; }
-        if (_autoResumeTimeoutHandle) { clearTimeout(_autoResumeTimeoutHandle); _autoResumeTimeoutHandle = null; }
-        scheduleAutoResumeUsingRemaining();
-      }
     });
-
-    reverseCheckEl.addEventListener('change', e => {
+    reverseCheck.addEventListener('change', e => {
       window.goBackwards = e.target.checked;
-      localStorage.setItem(PERSIST_KEYS.reverse, window.goBackwards);
-      saveState();
+      localStorage.setItem(PERSIST_KEYS.reverse, window.goBackwards); saveState();
     });
-
-    rememberCheckEl.addEventListener('change', e => {
+    rememberCheck.addEventListener('change', e => {
       window.rememberProgress = e.target.checked;
       localStorage.setItem(PERSIST_KEYS.remember, window.rememberProgress ? 'true' : 'false');
       if (!window.rememberProgress) localStorage.removeItem(PERSIST_KEYS.persistent);
       else saveState();
     });
 
-    resetBtn.addEventListener('click', () => {
+    $('resetBtn').addEventListener('click', () => {
       if (!confirm('Reset everything?')) return;
-      try {
-        sessionStorage.removeItem(PERSIST_KEYS.state);
-        localStorage.removeItem(PERSIST_KEYS.persistent);
-        localStorage.removeItem(PERSIST_KEYS.totalDeleted);
-        localStorage.removeItem(PERSIST_KEYS.delay);
-        localStorage.removeItem(PERSIST_KEYS.reverse);
-        localStorage.removeItem(PERSIST_KEYS.remember);
-        localStorage.removeItem(PERSIST_KEYS.batchSize);
-        localStorage.removeItem(PERSIST_KEYS.pauseMinutes);
-        localStorage.removeItem(PERSIST_KEYS.pauseRemaining);
-        localStorage.removeItem(PERSIST_KEYS.timerSetWaiting);
-        localStorage.removeItem(PERSIST_KEYS.deletionCounter);
-      } catch (e) {}
+      stopCountdownHard();
+      Object.values(PERSIST_KEYS).forEach(k => { try { sessionStorage.removeItem(k); localStorage.removeItem(k); } catch(e){} });
       location.reload();
     });
-
-    totalResetRight.addEventListener('click', () => {
+    $('totalResetRight').addEventListener('click', () => {
       if (!confirm('Reset total deleted counter to 0?')) return;
       resetTotalCounter();
     });
-    batchReset.addEventListener('click', () => {
-      if (!confirm('Reset batch (links opened) counter to 0?')) return;
-      resetBatchCounter();
-      const statusElLocal = document.getElementById('status');
-      if (statusElLocal) statusElLocal.textContent = 'Batch count reset (timer unchanged)';
+    $('batchReset').addEventListener('click', () => {
+      if (!confirm('Reset batch counter to 0?')) return;
+      resetBatchCounterOnly();
+      statusEl.textContent = 'Batch count reset (timer unchanged)';
     });
-    pauseReset.addEventListener('click', () => {
-      if (!confirm('Reset timer to configured time and start waiting for next link?')) return;
-      resetPauseTimerAndSetWaiting();
-      const statusElLocal = document.getElementById('status');
-      if (statusElLocal) statusElLocal.textContent = 'Timer set — will start when next link opens';
-      const toggleBtnLocal = document.getElementById('toggleBtn');
-      if (toggleBtnLocal) { toggleBtnLocal.textContent = `⏸ Auto-paused (${window.pauseMinutes} min)`; toggleBtnLocal.style.background = '#f59e0b'; }
+    $('timerReset').addEventListener('click', () => {
+      if (!confirm('Reset timer and batch? Countdown will restart on next link opened.')) return;
+      resetTimerAndBatch();
+      statusEl.textContent = 'Timer reset — will start on next link opened';
+      // Unpause so the user can resume — the timer is just cleared, not stuck
+      window.paused = false;
+      window.manuallyPaused = false;
+      toggleBtn.textContent = '⏸ Pause';
+      toggleBtn.style.background = '#22c55e';
+      saveState();
     });
 
+    // ── Toggle — NEVER touches _intervalHandle ────────────────────────────
     toggleBtn.addEventListener('click', (e) => {
       e.stopImmediatePropagation();
       e.preventDefault();
-
       if (!window.postList.length) return alert('Load a file first');
 
-      if (_autoResumeTimeoutHandle && window.paused && !window.manuallyPaused) {
-        window.manuallyPaused = true;
-        const statusElLocal = document.getElementById('status');
-        toggleBtn.textContent = '▶ Start';
-        toggleBtn.style.background = '#ef4444';
-        if (statusElLocal) statusElLocal.textContent = 'Paused by user (manual) — timer preserved';
-        updatePauseTimerDisplayText(Math.floor(window._pauseTimeRemainingSeconds / 60), window._pauseTimeRemainingSeconds % 60);
-        saveState();
-        return;
-      }
-
       if (window.paused) {
-        if (window.deletionCounter >= window.batchSize) {
-          const timerExists = (window._timerRunning === true) || (window._timerSetWaitingForLink === true) || (typeof window._pauseTimeRemainingSeconds === 'number' && window._pauseTimeRemainingSeconds > 0);
-          if (timerExists) {
-            resetBatchCounter();
-          } else {
-            resetPauseTimerAndSetWaiting();
-            const statusElLocal = document.getElementById('status');
-            if (statusElLocal) statusElLocal.textContent = 'Batch was maxed — timer set and waiting for next link';
-            const toggleBtnLocal = document.getElementById('toggleBtn');
-            if (toggleBtnLocal) { toggleBtnLocal.textContent = `⏸ Auto-paused (${window.pauseMinutes} min)`; toggleBtnLocal.style.background = '#f59e0b'; }
-            return;
-          }
-        }
-
-        if (_autoResumeTimeoutHandle) { clearTimeout(_autoResumeTimeoutHandle); _autoResumeTimeoutHandle = null; }
-        if (_pauseIntervalHandle) { clearInterval(_pauseIntervalHandle); _pauseIntervalHandle = null; }
-        window.paused = false;
+        // RESUME
+        window.paused         = false;
         window.manuallyPaused = false;
-        toggleBtn.textContent = '⏸ Pause';
+        toggleBtn.textContent      = '⏸ Pause';
         toggleBtn.style.background = '#22c55e';
         saveState();
         if (location.href.includes('/status/')) {
@@ -870,79 +668,56 @@
             if (ok) setTimeout(processPage, 600);
           });
         }
-        return;
-      }
-
-      if (_autoResumeTimeoutHandle || _pauseIntervalHandle) {
-        window.paused = true;
+      } else {
+        // PAUSE — just flip the flag, countdown keeps running
+        window.paused         = true;
         window.manuallyPaused = true;
-        toggleBtn.textContent = '▶ Start';
+        toggleBtn.textContent      = '▶ Start';
         toggleBtn.style.background = '#ef4444';
-        const statusElLocal2 = document.getElementById('status');
-        if (statusElLocal2) statusElLocal2.textContent = 'Paused by user (manual) — timer preserved';
+        statusEl.textContent = _intervalHandle !== null
+          ? 'Paused — timer still counting down'
+          : 'Paused';
         saveState();
-        return;
       }
-
-      if (_autoResumeTimeoutHandle) { clearTimeout(_autoResumeTimeoutHandle); _autoResumeTimeoutHandle = null; }
-      if (_pauseIntervalHandle) { clearInterval(_pauseIntervalHandle); _pauseIntervalHandle = null; }
-      window.paused = true;
-      window.manuallyPaused = true;
-      toggleBtn.textContent = '▶ Start';
-      toggleBtn.style.background = '#ef4444';
-      const statusElLocal3 = document.getElementById('status');
-      if (statusElLocal3) statusElLocal3.textContent = 'Paused by user (manual)';
-      updatePauseTimerDisplayText();
-      saveState();
     });
 
-    openStatusBtn.addEventListener('click', async () => {
+    $('openStatusBtn').addEventListener('click', async () => {
       if (!window.postList.length) return alert('Load a file first');
       const ok = await safeNavigateAndCount(window.postList[window.currentIndex]);
       if (ok) setTimeout(processPage, 600);
     });
 
-    setTimeout(() => {
-      updateBatchCounter();
-      localUpdateUI();
-    }, 300);
+    setTimeout(syncUI, 300);
   }
 
   window.addEventListener('beforeunload', () => {
     try {
-      if (typeof window._pauseTimeRemainingSeconds === 'number') {
-        localStorage.setItem(PERSIST_KEYS.pauseRemaining, String(window._pauseTimeRemainingSeconds));
+      if (window._countdownSeconds !== null && window._countdownSeconds > 0) {
+        localStorage.setItem(PERSIST_KEYS.countdown, String(window._countdownSeconds));
+      } else {
+        localStorage.removeItem(PERSIST_KEYS.countdown);
       }
-      localStorage.setItem(PERSIST_KEYS.timerSetWaiting, window._timerSetWaitingForLink ? '1' : '0');
       localStorage.setItem(PERSIST_KEYS.deletionCounter, String(window.deletionCounter));
-    } catch (e) {}
+    } catch(e) {}
     saveState();
   });
 
-  // --- init ---
+  // ── init ─────────────────────────────────────────────────────────────────
+
   async function init() {
     loadState();
-
-    // IMPORTANT: _timerRunning is runtime-only
-    window._timerRunning = false;
-
     window.currentUsername = await getCurrentUsername();
     createPanel();
 
-    // FIXED TIMER RESUME LOGIC — this is what fixes the "stuck timer" issue
-    if (typeof window._pauseTimeRemainingSeconds === 'number' && window._pauseTimeRemainingSeconds > 0) {
-      if (window._timerSetWaitingForLink) {
-        // waiting for next link — just show the remaining time
-        updatePauseTimerDisplayText(Math.floor(window._pauseTimeRemainingSeconds / 60), window._pauseTimeRemainingSeconds % 60);
-      } else {
-        // timer was actively running before reload → restart countdown + auto-resume
-        startVisiblePauseTimerIfNeeded();
-        scheduleAutoResumeUsingRemaining();
-      }
+    // If a countdown was actively running before the page navigated, resume it
+    if (window._countdownSeconds !== null && window._countdownSeconds > 0) {
+      startCountdown();
+    } else {
+      renderTimer(); // just show the preview
     }
 
     if (location.href.includes('/status/')) {
-      setTimeout(() => { countCurrentAsOpenedIfNeeded().catch(()=>{}); }, 300);
+      setTimeout(() => countCurrentAsOpenedIfNeeded().catch(() => {}), 300);
     }
   }
 
