@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         X-Force-All-Posts-Tab
+// @name         X-Show-RT
 // @namespace    http://tampermonkey.net/
 // @version      10.0
-// @description  Force All posts tab to open first
+// @description  Force All posts tab to open first so can see the RT without opening the RT tab.
 // @author       you
 // @match        https://x.com/*
 // @match        https://twitter.com/*
