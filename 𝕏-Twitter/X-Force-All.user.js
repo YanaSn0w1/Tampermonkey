@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         X-Force-All
 // @namespace    http://tampermonkey.net/
-// @version      6.4
-// @description  Force All + correct back chain (no stale navigation entry)
+// @version      6.7
+// @description  Force All + Back prefers /all and skips plain Posts
 // @author       you
 // @match        https://x.com/*
 // @match        https://twitter.com/*
@@ -14,9 +14,8 @@
     'use strict';
 
     let forcedForPath = null;
-    let lastStatusUrl = null;
-    let lastProfileUrl = null;
-    let usedInitialReferrer = false;
+    let historyStack = [];
+    const MAX_STACK = 10;
 
     function isProfile() {
         return /^\/[A-Za-z0-9_]+(\/all)?\/?$/.test(location.pathname);
@@ -37,6 +36,27 @@
                        const t = el.textContent.trim().toLowerCase();
                        return t.includes('posts') || t.includes('all');
                    });
+    }
+
+    function normalizeProfileUrl(url) {
+        // Always prefer the /all version for profiles
+        if (!url) return url;
+        const match = url.match(/https?:\/\/(?:x|twitter)\.com\/([A-Za-z0-9_]+)/);
+        if (match) {
+            return `https://x.com/${match[1]}/all`;
+        }
+        return url;
+    }
+
+    function pushToStack(url) {
+        if (!url) return;
+        let clean = url.split('?')[0];
+        if (isProfile()) {
+            clean = normalizeProfileUrl(clean);
+        }
+        if (historyStack[historyStack.length - 1] === clean) return;
+        historyStack.push(clean);
+        if (historyStack.length > MAX_STACK) historyStack.shift();
     }
 
     async function navigateTo(url) {
@@ -104,62 +124,38 @@
         }, 40);
     }
 
-    // Clean memory update — NO performance.navigation, NO overwriting
-    const updateMemory = () => {
-        if (isStatusPage()) {
-            lastStatusUrl = location.href;
-
-            // Only use document.referrer ONCE on real page load
-            if (!usedInitialReferrer) {
-                usedInitialReferrer = true;
-                const prev = document.referrer;
-                if (prev && !lastProfileUrl) {
-                    try {
-                        const u = new URL(prev);
-                        if ((u.hostname.endsWith('x.com') || u.hostname.endsWith('twitter.com')) &&
-                            /^\/[A-Za-z0-9_]+\/?$/.test(u.pathname)) {
-                            lastProfileUrl = u.origin + u.pathname.replace(/\/$/, '');
-                            console.log('[Force All] Origin set from referrer:', lastProfileUrl);
-                        }
-                    } catch (e) {}
-                }
-            }
-        }
-
-        // Capture profile on click / navigation (this is the reliable source)
-        if (isProfile() && !lastProfileUrl) {
-            lastProfileUrl = location.href.split('?')[0];
+    const updateStack = () => {
+        if (isProfile() || isStatusPage()) {
+            pushToStack(location.href);
         }
     };
 
-    // Back button handling
     document.addEventListener('click', async (e) => {
         const backBtn = e.target.closest('button[data-testid="app-bar-back"], button[aria-label="Back"]');
         if (!backBtn) return;
 
-        // Profile → last post
-        if (isProfile() && lastStatusUrl) {
-            console.log('[Force All] Profile → last post');
-            e.preventDefault();
-            e.stopImmediatePropagation();
-            const url = lastStatusUrl;
-            lastStatusUrl = null;
-            await navigateTo(url);
-            return;
+        // Pop current page
+        const current = location.href.split('?')[0];
+        if (historyStack.length && (historyStack[historyStack.length - 1] === current || 
+            historyStack[historyStack.length - 1] === normalizeProfileUrl(current))) {
+            historyStack.pop();
         }
 
-        // Post → original profile
-        if (isStatusPage() && lastProfileUrl) {
-            console.log('[Force All] Post → original profile');
+        if (historyStack.length > 0) {
+            let target = historyStack.pop();
+            // Force profile targets to /all
+            if (/^https?:\/\/(?:x|twitter)\.com\/[A-Za-z0-9_]+\/?$/.test(target)) {
+                target = normalizeProfileUrl(target);
+            }
+            console.log('[Force All] Back →', target);
             e.preventDefault();
             e.stopImmediatePropagation();
-            await navigateTo(lastProfileUrl);
-            return;
+            await navigateTo(target);
         }
     }, true);
 
     const check = () => {
-        updateMemory();
+        updateStack();
         if (location.pathname !== forcedForPath && !location.pathname.endsWith('/all')) {
             forcedForPath = null;
         }
