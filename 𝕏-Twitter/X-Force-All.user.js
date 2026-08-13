@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         X-Force-All
 // @namespace    http://tampermonkey.net/
-// @version      6.7
-// @description  Force All + Back prefers /all and skips plain Posts
+// @version      10.0
+// @description  Force All posts tab to always open first so can see RT
 // @author       you
 // @match        https://x.com/*
 // @match        https://twitter.com/*
@@ -14,8 +14,12 @@
     'use strict';
 
     let forcedForPath = null;
-    let historyStack = [];
+    let historyStack = [];            // entries: { url, idx }
+    let frozen = false;               // hard freeze flag (compose/reply open)
+    let navigating = false;           // true while we're jumping via history.go / fallback stepping
+    let freezeTimer = null;
     const MAX_STACK = 10;
+    const MAX_BACK_STEPS = 15;        // safety cap, fallback path only
 
     function isProfile() {
         return /^\/[A-Za-z0-9_]+(\/all)?\/?$/.test(location.pathname);
@@ -23,6 +27,10 @@
 
     function isStatusPage() {
         return /\/status\/\d+/.test(location.pathname);
+    }
+
+    function isCompose() {
+        return location.pathname.includes('/compose/');
     }
 
     function getBasePath() {
@@ -39,28 +47,149 @@
     }
 
     function normalizeProfileUrl(url) {
-        // Always prefer the /all version for profiles
         if (!url) return url;
         const match = url.match(/https?:\/\/(?:x|twitter)\.com\/([A-Za-z0-9_]+)/);
-        if (match) {
-            return `https://x.com/${match[1]}/all`;
-        }
+        if (match) return `https://x.com/${match[1]}/all`;
         return url;
     }
 
-    function pushToStack(url) {
-        if (!url) return;
-        let clean = url.split('?')[0];
-        if (isProfile()) {
-            clean = normalizeProfileUrl(clean);
+    function currentNormalized() {
+        const clean = location.href.split('?')[0];
+        return isProfile() ? normalizeProfileUrl(clean) : clean;
+    }
+
+    // React Router's browser history implementation (which X's compose/reply
+    // modal routing depends on) stamps every entry with history.state — an
+    // object usually containing idx/key/usr fields. Capturing the WHOLE object
+    // (not just idx) lets us replay it byte-for-byte later.
+    function getHistoryState() {
+        try {
+            return history.state ? JSON.parse(JSON.stringify(history.state)) : null;
+        } catch (e) {
+            return null;
         }
-        if (historyStack[historyStack.length - 1] === clean) return;
-        historyStack.push(clean);
+    }
+    function getHistoryIdx() {
+        const s = history.state;
+        return (s && typeof s.idx === 'number') ? s.idx : null;
+    }
+
+    function pushToStack(url) {
+        if (!url || frozen || navigating || isCompose()) return;
+        let clean = url.split('?')[0];
+        if (isProfile()) clean = normalizeProfileUrl(clean);
+        const idx = getHistoryIdx();
+        const state = getHistoryState();
+        const top = historyStack[historyStack.length - 1];
+        if (top && top.url === clean) return;
+        historyStack.push({ url: clean, idx, state });
         if (historyStack.length > MAX_STACK) historyStack.shift();
     }
 
-    async function navigateTo(url) {
-        if (!url) return false;
+    // PRIMARY: synthetic jump, same technique as the original script (pushState
+    // + manual popstate dispatch — instant, no real navigation, no network
+    // fetch), but replaying the EXACT state object that entry had instead of
+    // wiping it to {}. Since idx/key/usr are all intact, React Router treats it
+    // the same as if you'd genuinely visited that entry, so compose/reply's
+    // backgroundLocation resolves correctly — while staying as fast as before.
+    async function fastJumpTo(entry) {
+        if (!entry || !entry.url) return false;
+        navigating = true;
+        try {
+            const state = entry.state !== undefined && entry.state !== null ? entry.state : {};
+            history.pushState(state, '', entry.url);
+            window.dispatchEvent(new PopStateEvent('popstate', { state }));
+            await new Promise(r => setTimeout(r, 50)); // brief settle, same order as native back
+            return true;
+        } finally {
+            navigating = false;
+        }
+    }
+
+    // PRIMARY: jump straight to the target's real history index in one atomic
+    // history.go(-n) call. A multi-step go() fires a single popstate landing
+    // directly on the target entry — no intermediate rendering (no Posts-tab
+    // flash), and it's a genuine entry so React Router's own state for it
+    // (including whatever backgroundLocation compose/reply modals rely on)
+    // comes back intact.
+    async function jumpToIdx(targetIdx, targetUrl) {
+        const curIdx = getHistoryIdx();
+        if (curIdx === null || targetIdx === null) return false;
+        const delta = curIdx - targetIdx;
+        if (delta <= 0) return false;
+
+        navigating = true;
+        showOverlay(); // hide the blank beat while the SPA mounts a route it hasn't rendered recently
+        try {
+            history.go(-delta);
+            // wait for the single popstate + SPA render
+            for (let i = 0; i < 20; i++) {
+                await new Promise(r => setTimeout(r, 100));
+                if (getHistoryIdx() === targetIdx) {
+                    // small settle delay so content has actually painted before reveal
+                    await new Promise(r => setTimeout(r, 120));
+                    return true;
+                }
+            }
+            // landed somewhere, but not confirmed at targetIdx — accept if URL matches
+            if (targetUrl && (currentNormalized() === targetUrl || location.href.split('?')[0] === targetUrl)) {
+                await new Promise(r => setTimeout(r, 120));
+                return true;
+            }
+            return false;
+        } finally {
+            hideOverlay();
+            navigating = false;
+        }
+    }
+
+    // FALLBACK: used only when idx isn't available (e.g. entry predates React
+    // Router attaching state, or browser doesn't expose it). Steps one real
+    // history.back() at a time, hidden behind an overlay so intermediate
+    // entries (like the Posts-tab flash) aren't visible.
+    let overlayEl = null;
+    function showOverlay() {
+        if (overlayEl) return;
+        overlayEl = document.createElement('div');
+        overlayEl.style.cssText = 'position:fixed; inset:0; z-index:2147483647; background:#000;';
+        const bg = getComputedStyle(document.body).backgroundColor;
+        if (bg) overlayEl.style.background = bg;
+        document.documentElement.appendChild(overlayEl);
+    }
+    function hideOverlay() {
+        if (overlayEl) {
+            overlayEl.remove();
+            overlayEl = null;
+        }
+    }
+
+    async function stepBackTo(targetUrl) {
+        if (!targetUrl) return false;
+        navigating = true;
+        showOverlay();
+        try {
+            for (let i = 0; i < MAX_BACK_STEPS; i++) {
+                if (isCompose()) break;
+                const before = location.href;
+                history.back();
+                await new Promise(r => setTimeout(r, 220));
+                if (location.href === before) break;
+                if (currentNormalized() === targetUrl || location.href.split('?')[0] === targetUrl) {
+                    await new Promise(r => setTimeout(r, 150));
+                    return true;
+                }
+            }
+            return false;
+        } finally {
+            hideOverlay();
+            navigating = false;
+        }
+    }
+
+    // LAST RESORT: fake jump via pushState. Breaks router state for any modal
+    // opened immediately after, so only used if both jumpToIdx and stepBackTo fail.
+    async function forceNavigateTo(url) {
+        if (!url || frozen || isCompose()) return false;
         try {
             history.pushState({}, '', url);
             window.dispatchEvent(new PopStateEvent('popstate'));
@@ -84,8 +213,33 @@
         return true;
     }
 
+    async function goToTarget(entry) {
+        // entry: { url, idx, state }
+        if (entry.state) {
+            const ok = await fastJumpTo(entry);
+            if (ok) {
+                console.log('[Force All] Back → fast jump →', entry.url);
+                return true;
+            }
+        }
+        if (entry.idx !== null && entry.idx !== undefined) {
+            const ok = await jumpToIdx(entry.idx, entry.url);
+            if (ok) {
+                console.log('[Force All] Back → real idx jump →', entry.url);
+                return true;
+            }
+        }
+        const stepped = await stepBackTo(entry.url);
+        if (stepped) {
+            console.log('[Force All] Back → stepped fallback →', entry.url);
+            return true;
+        }
+        console.log('[Force All] Back → pushState fallback →', entry.url);
+        return await forceNavigateTo(entry.url);
+    }
+
     function forceAll() {
-        if (!isProfile()) return;
+        if (!isProfile() || frozen || navigating || isCompose()) return;
 
         const base = getBasePath();
         if (forcedForPath === base) return;
@@ -94,17 +248,14 @@
         if (!trigger) return;
 
         const text = trigger.textContent.trim().toLowerCase();
-
         if (text.includes('all')) {
             forcedForPath = base;
             return;
         }
-
         if (!text.includes('posts')) return;
 
         const hasContent = document.querySelector('article') ||
-                           document.body.innerText.includes('Send a post') ||
-                           document.querySelector('[data-testid="emptyState"]');
+                           document.body.innerText.includes('Send a post');
         if (!hasContent) return;
 
         console.log('[Force All] Switching to All');
@@ -124,37 +275,51 @@
         }, 40);
     }
 
+    // Freeze / unfreeze logic
+    function updateFreeze() {
+        if (isCompose()) {
+            frozen = true;
+            if (freezeTimer) clearTimeout(freezeTimer);
+            // keep frozen for 2 seconds after leaving /compose/
+            freezeTimer = setTimeout(() => {
+                if (!isCompose()) frozen = false;
+            }, 2000);
+        }
+    }
+
     const updateStack = () => {
+        if (frozen || navigating || isCompose()) return;
         if (isProfile() || isStatusPage()) {
             pushToStack(location.href);
         }
     };
 
     document.addEventListener('click', async (e) => {
+        if (frozen || navigating || isCompose()) return;
+
         const backBtn = e.target.closest('button[data-testid="app-bar-back"], button[aria-label="Back"]');
         if (!backBtn) return;
 
-        // Pop current page
         const current = location.href.split('?')[0];
-        if (historyStack.length && (historyStack[historyStack.length - 1] === current || 
-            historyStack[historyStack.length - 1] === normalizeProfileUrl(current))) {
+        const currentNorm = normalizeProfileUrl(current);
+        if (historyStack.length &&
+            (historyStack[historyStack.length - 1].url === current ||
+             historyStack[historyStack.length - 1].url === currentNorm)) {
             historyStack.pop();
         }
 
         if (historyStack.length > 0) {
-            let target = historyStack.pop();
-            // Force profile targets to /all
-            if (/^https?:\/\/(?:x|twitter)\.com\/[A-Za-z0-9_]+\/?$/.test(target)) {
-                target = normalizeProfileUrl(target);
-            }
-            console.log('[Force All] Back →', target);
+            const entry = historyStack.pop();
             e.preventDefault();
             e.stopImmediatePropagation();
-            await navigateTo(target);
+            await goToTarget(entry);
         }
     }, true);
 
     const check = () => {
+        updateFreeze();
+        if (frozen || navigating || isCompose()) return;
+
         updateStack();
         if (location.pathname !== forcedForPath && !location.pathname.endsWith('/all')) {
             forcedForPath = null;
@@ -163,17 +328,15 @@
     };
 
     new MutationObserver(check).observe(document.body, { childList: true, subtree: true, attributes: true });
-    setInterval(check, 700);
+    setInterval(check, 600);
 
     const origPush = history.pushState;
     history.pushState = function() {
         origPush.apply(this, arguments);
         setTimeout(check, 200);
-        setTimeout(check, 600);
     };
 
     window.addEventListener('popstate', () => {
         setTimeout(check, 200);
-        setTimeout(check, 600);
     });
 })();
