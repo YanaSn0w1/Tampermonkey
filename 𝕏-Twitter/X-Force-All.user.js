@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         X-Force-All
 // @namespace    http://tampermonkey.net/
-// @version      3.6.2
-// @description  Force All + reliable extra back
+// @version      6.4
+// @description  Force All + correct back chain (no stale navigation entry)
 // @author       you
 // @match        https://x.com/*
 // @match        https://twitter.com/*
@@ -14,11 +14,16 @@
     'use strict';
 
     let forcedForPath = null;
-    let needsExtraBack = false;
-    let lastForcedTime = 0;
+    let lastStatusUrl = null;
+    let lastProfileUrl = null;
+    let usedInitialReferrer = false;
 
     function isProfile() {
         return /^\/[A-Za-z0-9_]+(\/all)?\/?$/.test(location.pathname);
+    }
+
+    function isStatusPage() {
+        return /\/status\/\d+/.test(location.pathname);
     }
 
     function getBasePath() {
@@ -34,6 +39,31 @@
                    });
     }
 
+    async function navigateTo(url) {
+        if (!url) return false;
+        try {
+            history.pushState({}, '', url);
+            window.dispatchEvent(new PopStateEvent('popstate'));
+            await new Promise(r => setTimeout(r, 400));
+            return true;
+        } catch (e) {}
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
+        document.body.appendChild(a);
+        try {
+            a.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true }));
+            a.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));
+            a.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+        } catch (e) {
+            a.click();
+        }
+        setTimeout(() => a.remove(), 150);
+        await new Promise(r => setTimeout(r, 700));
+        return true;
+    }
+
     function forceAll() {
         if (!isProfile()) return;
 
@@ -47,9 +77,6 @@
 
         if (text.includes('all')) {
             forcedForPath = base;
-            if (location.pathname.endsWith('/all')) {
-                history.replaceState(null, '', base);
-            }
             return;
         }
 
@@ -60,63 +87,97 @@
                            document.querySelector('[data-testid="emptyState"]');
         if (!hasContent) return;
 
-        console.log('[Force All] Switching Posts → All');
+        console.log('[Force All] Switching to All');
         forcedForPath = base;
-        needsExtraBack = true;
-        lastForcedTime = Date.now();
 
         trigger.click();
 
-        const tryClick = () => {
-            const menu = document.querySelector('div[role="menu"]');
-            if (!menu) return false;
-            const allItem = [...menu.querySelectorAll('div[role="menuitem"]')]
+        let tries = 0;
+        const id = setInterval(() => {
+            const allItem = [...document.querySelectorAll('div[role="menuitem"]')]
                 .find(el => el.textContent.trim() === 'All');
             if (allItem) {
                 allItem.click();
-                setTimeout(() => {
-                    if (location.pathname.endsWith('/all')) {
-                        history.replaceState(null, '', base);
-                    }
-                }, 50);
-                return true;
+                clearInterval(id);
             }
-            return false;
-        };
-
-        let tries = 0;
-        const id = setInterval(() => {
-            tries++;
-            if (tryClick() || tries > 12) clearInterval(id);
+            if (++tries > 12) clearInterval(id);
         }, 40);
     }
 
-    window.addEventListener('popstate', () => {
-        if (needsExtraBack && (Date.now() - lastForcedTime < 12000)) {
-            console.log('[Force All] Doing extra back');
-            needsExtraBack = false;
-            setTimeout(() => history.back(), 10);
+    // Clean memory update — NO performance.navigation, NO overwriting
+    const updateMemory = () => {
+        if (isStatusPage()) {
+            lastStatusUrl = location.href;
+
+            // Only use document.referrer ONCE on real page load
+            if (!usedInitialReferrer) {
+                usedInitialReferrer = true;
+                const prev = document.referrer;
+                if (prev && !lastProfileUrl) {
+                    try {
+                        const u = new URL(prev);
+                        if ((u.hostname.endsWith('x.com') || u.hostname.endsWith('twitter.com')) &&
+                            /^\/[A-Za-z0-9_]+\/?$/.test(u.pathname)) {
+                            lastProfileUrl = u.origin + u.pathname.replace(/\/$/, '');
+                            console.log('[Force All] Origin set from referrer:', lastProfileUrl);
+                        }
+                    } catch (e) {}
+                }
+            }
         }
-        setTimeout(forceAll, 300);
-        setTimeout(forceAll, 900);
-    });
+
+        // Capture profile on click / navigation (this is the reliable source)
+        if (isProfile() && !lastProfileUrl) {
+            lastProfileUrl = location.href.split('?')[0];
+        }
+    };
+
+    // Back button handling
+    document.addEventListener('click', async (e) => {
+        const backBtn = e.target.closest('button[data-testid="app-bar-back"], button[aria-label="Back"]');
+        if (!backBtn) return;
+
+        // Profile → last post
+        if (isProfile() && lastStatusUrl) {
+            console.log('[Force All] Profile → last post');
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const url = lastStatusUrl;
+            lastStatusUrl = null;
+            await navigateTo(url);
+            return;
+        }
+
+        // Post → original profile
+        if (isStatusPage() && lastProfileUrl) {
+            console.log('[Force All] Post → original profile');
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            await navigateTo(lastProfileUrl);
+            return;
+        }
+    }, true);
 
     const check = () => {
-        if (!location.pathname.endsWith('/all') && location.pathname !== forcedForPath) {
+        updateMemory();
+        if (location.pathname !== forcedForPath && !location.pathname.endsWith('/all')) {
             forcedForPath = null;
         }
         forceAll();
     };
 
-    const observer = new MutationObserver(check);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
-
-    setInterval(check, 800);
+    new MutationObserver(check).observe(document.body, { childList: true, subtree: true, attributes: true });
+    setInterval(check, 700);
 
     const origPush = history.pushState;
     history.pushState = function() {
         origPush.apply(this, arguments);
-        setTimeout(check, 250);
-        setTimeout(check, 900);
+        setTimeout(check, 200);
+        setTimeout(check, 600);
     };
+
+    window.addEventListener('popstate', () => {
+        setTimeout(check, 200);
+        setTimeout(check, 600);
+    });
 })();
