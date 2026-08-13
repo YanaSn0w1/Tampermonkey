@@ -2,7 +2,7 @@
 // @name         X-Force-All
 // @namespace    http://tampermonkey.net/
 // @version      10.0
-// @description  Force All posts tab to always open first so can see RT
+// @description  Force All posts tab to open first so can see RT
 // @author       you
 // @match        https://x.com/*
 // @match        https://twitter.com/*
