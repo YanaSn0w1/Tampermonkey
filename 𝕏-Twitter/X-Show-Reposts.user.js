@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         X-Show-RT
+// @name         X-Show-Reposts
 // @namespace    http://tampermonkey.net/
 // @version      10.0
-// @description  Force All posts tab to open first so can see the RT without opening the RT tab.
+// @description  Force the All tab to open first so can keep an eye on spammy reposts
 // @author       you
 // @match        https://x.com/*
 // @match        https://twitter.com/*
@@ -81,7 +81,20 @@
         const idx = getHistoryIdx();
         const state = getHistoryState();
         const top = historyStack[historyStack.length - 1];
-        if (top && top.url === clean) return;
+        if (top && top.url === clean) {
+            // Same page as last time — refresh the captured state/idx instead of
+            // a one-shot capture. If you land on a profile and click back fast
+            // (before forceAll's Posts->All switch settles), the FIRST capture
+            // can be mid-transition; refreshing on every tick means by the time
+            // you actually click back, the stored entry reflects the settled
+            // "All" tab state instead of a stale pre-switch snapshot.
+            if (idx !== top.idx || JSON.stringify(state) !== JSON.stringify(top.state)) {
+                console.log('[Force All][refresh]', { url: clean, idx });
+                top.idx = idx;
+                top.state = state;
+            }
+            return;
+        }
         console.log('[Force All][push]', { url: clean, idx, path: location.pathname });
         historyStack.push({ url: clean, idx, state });
         if (historyStack.length > MAX_STACK) historyStack.shift();
@@ -190,7 +203,7 @@
     // LAST RESORT: fake jump via pushState. Breaks router state for any modal
     // opened immediately after, so only used if both jumpToIdx and stepBackTo fail.
     async function forceNavigateTo(url) {
-        if (!url || frozen || isCompose()) return false;
+        if (!url || isCompose()) return false;
         try {
             history.pushState({}, '', url);
             window.dispatchEvent(new PopStateEvent('popstate'));
@@ -296,7 +309,11 @@
     };
 
     document.addEventListener('click', async (e) => {
-        if (frozen || navigating || isCompose()) return;
+        if (navigating || isCompose()) return; // frozen intentionally NOT checked here —
+        // frozen's 2s post-compose cooldown is meant to pause background tracking
+        // (pushToStack/forceAll), not to disable back-button interception. Bailing
+        // on frozen here was why closing a reply box and hitting back quickly
+        // fell through to native (unintercepted) back -> landed on Posts tab.
 
         const backBtn = e.target.closest('button[data-testid="app-bar-back"], button[aria-label="Back"]');
         if (!backBtn) return;
