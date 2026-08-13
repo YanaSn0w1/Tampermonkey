@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         X-Force-All
+// @name         X-Force-All-Posts-Tab
 // @namespace    http://tampermonkey.net/
 // @version      10.0
-// @description  Force All posts tab to open first so can see RT
+// @description  Force All posts tab to open first
 // @author       you
 // @match        https://x.com/*
 // @match        https://twitter.com/*
@@ -82,6 +82,7 @@
         const state = getHistoryState();
         const top = historyStack[historyStack.length - 1];
         if (top && top.url === clean) return;
+        console.log('[Force All][push]', { url: clean, idx, path: location.pathname });
         historyStack.push({ url: clean, idx, state });
         if (historyStack.length > MAX_STACK) historyStack.shift();
     }
@@ -302,6 +303,7 @@
 
         const current = location.href.split('?')[0];
         const currentNorm = normalizeProfileUrl(current);
+        console.log('[Force All][back-click]', { current, currentNorm, stack: historyStack.map(e => e.url) });
         if (historyStack.length &&
             (historyStack[historyStack.length - 1].url === current ||
              historyStack[historyStack.length - 1].url === currentNorm)) {
@@ -310,6 +312,7 @@
 
         if (historyStack.length > 0) {
             const entry = historyStack.pop();
+            console.log('[Force All][back-target]', entry);
             e.preventDefault();
             e.stopImmediatePropagation();
             await goToTarget(entry);
