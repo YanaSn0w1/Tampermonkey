@@ -2,7 +2,7 @@
 // @name         X-Show-RT
 // @namespace    http://tampermonkey.net/
 // @version      10.0
-// @description  Opens the All tab on every new profile. Skips going from "All" to "Posts" when clicking back.
+// @description  Opens the All tab on every new profile. Skips going from "All" to "Posts" clicking back.
 // @author       you
 // @match        https://x.com/*
 // @match        https://twitter.com/*
