@@ -2,7 +2,7 @@
 // @name         X-Show-Reposts
 // @namespace    http://tampermonkey.net/
 // @version      10.0
-// @description  Forces the All tab to open on every new profile. Skips needing to go from "All" to "Posts" when clicking back.
+// @description  Opens the All tab on every new profile. Skips going from "All" to "Posts" when clicking back.
 // @author       you
 // @match        https://x.com/*
 // @match        https://twitter.com/*
