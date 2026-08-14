@@ -2,7 +2,7 @@
 // @name         X-Show-Reposts
 // @namespace    http://tampermonkey.net/
 // @version      10.0
-// @description  Force the All tab to open first so can keep an eye on spammy reposts
+// @description  Forces the All tab to open on every new profile. Skips the 2nd back click to go directly to your post.
 // @author       you
 // @match        https://x.com/*
 // @match        https://twitter.com/*
