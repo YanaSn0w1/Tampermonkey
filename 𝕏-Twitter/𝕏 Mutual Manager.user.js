@@ -17,8 +17,8 @@
   let KEY_WORDS = JSON.parse(localStorage.getItem('um_key_words')) || ['elon', 'musk', 'private', 'chat', 'dm'].map(w => w.toLowerCase());
   let WHITELIST = JSON.parse(localStorage.getItem('um_whitelist')) || ['YanaHeat', 'YanaSn0w1'];
 
-  let scPauseCount = parseInt(localStorage.getItem('um_sc_pause_count')) || 200;
-  let scPauseSeconds = parseInt(localStorage.getItem('um_sc_pause_seconds')) || 30;
+  let scPauseCount = parseInt(localStorage.getItem('um_sc_pause_count')) || 1000;
+  let scPauseSeconds = parseInt(localStorage.getItem('um_sc_pause_seconds')) || 5;
   const fbMaxPerPeriod = 14;
   let fbCooldownMinutes = parseFloat(localStorage.getItem('um_fb_cooldown_minutes')) || 15;
 
