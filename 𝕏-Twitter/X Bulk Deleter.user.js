@@ -38,7 +38,7 @@
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   const DEFAULT_TRIGGERS = [
-    'link', 'bio', 'DM', 'chat', 'notif', 'RT', 'QT', 'quote', 'tag', 'IFB', 'LFG', 
+    'link', 'bio', 'DM', 'chat', 'notif', 'RT', 'QT', 'quote', 'tag', 'IFB', 'LFG', 'post', 
     'group', 'community', 'together', 'friend', 'meet', 'hook', 'invite', 'onlyfans', 'fanvue', 'fansly', 'free', 
     'follow', 'active', 'connect', 'like', 'say', 'type', 'comment', 'drop', 'account', 
     'gain', 'grow', 'viral', 'check', 'reply', 'report', 'engage', 'hack', 'organic', 
