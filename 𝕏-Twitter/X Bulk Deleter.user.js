@@ -39,7 +39,7 @@
 
   const DEFAULT_TRIGGERS = [
     'link', 'bio', 'DM', 'chat', 'notif', 'RT', 'QT', 'quote', 'tag', 'IFB', 'LFG', 
-    'group', 'community', 'together', 'friend', 'meet', 'hook', 
+    'group', 'community', 'together', 'friend', 'meet', 'hook', 'invite', 'onlyfans', 'fanvue', 'fansly', 'free', 
     'follow', 'active', 'connect', 'like', 'say', 'type', 'comment', 'drop', 'account', 
     'gain', 'grow', 'viral', 'check', 'reply', 'report', 'engage', 'hack', 'organic', 
     'who wants', 'Can I get', 'first 10', 'chain', 'copy', 'giveaway', 'request', 'nerf', 
