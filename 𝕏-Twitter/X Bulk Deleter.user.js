@@ -40,7 +40,7 @@
   const DEFAULT_TRIGGERS = [
     'link', 'bio', 'DM', 'chat', 'notif', 'RT', 'QT', 'quote', 'tag', 'IFB', 'LFG', 
     'follow', 'active', 'connect', 'like', 'say', 'type', 'comment', 'drop', 'account', 
-    'gain', 'grow', 
+    'gain', 'grow', 'viral', 'check', 'reply', 'report', 'engage', 'hack', 
     'who wants', 'Can I get', 'first 10', 'chain', 'copy', 'giveaway',
     'Only for genius', 'only 1%', "don't scroll", 'Prove me wrong', 'No word starts',
     'riddle', 'puzzle', 'GE?', 'GM?', 'GN?', 'hello?'
