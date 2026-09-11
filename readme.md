@@ -9,6 +9,7 @@
 - Unfollow same as above + non mutual.
 
 # [X Bulk Deleter](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/X%20Bulk%20Deleter.user.js "X Bulk Deleter") ⬅️
+- Deletes keywords or from JSON.
 - Download your X archives
 - Get the JSON with [X Archive Viewer](https://github.com/YanaSn0w1/Python/blob/main/Archive%20Viewer/x_viewer.md#paypal-donations-%EF%B8%8F "X Archive Viewer") ⬅️
 
