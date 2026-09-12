@@ -1,5 +1,5 @@
 # [𝕏 Mutual Manager](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/%F0%9D%95%8F%20Mutual%20Manager.user.js "𝕏 Mutual Manager") ⬅️
-# Donations optional: [PayPal-Donations](https://www.paypal.com/donate/?hosted_button_id=9LWWH273HEVC4 "Donate to YanaHeat") ⬅️
+# Optional: [PayPal-Donations](https://www.paypal.com/donate/?hosted_button_id=9LWWH273HEVC4 "Donate to YanaHeat") ⬅️
 <img width="809" height="690" alt="r5vwVPUWd2" src="https://github.com/user-attachments/assets/a9bdf3b8-aca7-4a0c-9ea0-ebf33d607314" />
 
 # Description
@@ -10,6 +10,7 @@
 - Unfollow same as above + non mutual.
 
 # [X Bulk Deleter](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/X%20Bulk%20Deleter.user.js "X Bulk Deleter") ⬅️
+# Optional: [PayPal-Donations](https://www.paypal.com/donate/?hosted_button_id=9LWWH273HEVC4 "Donate to YanaHeat") ⬅️
 ## Deletes keywords or from JSON.
 - You only need tampermonkey to delete search words or you can delete all if download your X archive.
 - Download your X archive and get the JSON with [X Archive Viewer](https://github.com/YanaSn0w1/Python/blob/main/Archive%20Viewer/x_viewer.md#paypal-donations-%EF%B8%8F "X Archive Viewer") ⬅️
