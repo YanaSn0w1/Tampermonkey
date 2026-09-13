@@ -11,7 +11,7 @@
   const DEFAULTS = {
     delaySeconds: 6,
     batchSize: 150,
-    searchBatchSize: 50,
+    searchBatchSize: 40,
     deletedLimit: 150,
     pauseMinutes: 15,
     retrySeconds: 60,
