@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         𝕏 Follow Timer
 // @namespace    http://tampermonkey.net/
-// @version      1.0.4
+// @version      1.0.9
 // @author       YanaHeat
 // @match        https://x.com/*
 // @match        https://twitter.com/*
@@ -17,34 +17,50 @@
   if (/\/i\/report\//.test(location.pathname)) return;
 
   const COOLDOWN_MS = 15 * 60 * 1000;
+  const MAX_PER_PERIOD = 15;
   const STORAGE = {
     count: 'ft_count',
     start: 'ft_periodStart',
     total: 'ft_total',
     mini: 'ft_minimized',
-    pos: 'ft_pos'
+    pos: 'ft_pos',
+    users: 'ft_users',
+    reset: 'ft_lastReset'
   };
 
   let followCount = 0;
   let periodStart = 0;
+  let lastReset = 0;
   let totalFollows = 0;
   let minimized = false;
   let remaining = 0;
   let timerInt = null;
+  let countedUsers = [];
+  const pendingClicks = new Set();
 
   function readState() {
     followCount = parseInt(localStorage.getItem(STORAGE.count) || '0', 10);
     periodStart = parseInt(localStorage.getItem(STORAGE.start) || '0', 10);
+    lastReset = parseInt(localStorage.getItem(STORAGE.reset) || '0', 10);
     totalFollows = parseInt(localStorage.getItem(STORAGE.total) || '0', 10);
     minimized = localStorage.getItem(STORAGE.mini) === 'true';
+    try {
+      countedUsers = JSON.parse(localStorage.getItem(STORAGE.users) || '[]');
+      if (!Array.isArray(countedUsers)) countedUsers = [];
+    } catch (e) {
+      countedUsers = [];
+    }
   }
 
   function save() {
     localStorage.setItem(STORAGE.count, String(followCount));
     localStorage.setItem(STORAGE.total, String(totalFollows));
     localStorage.setItem(STORAGE.mini, String(minimized));
+    localStorage.setItem(STORAGE.users, JSON.stringify(countedUsers));
     if (periodStart) localStorage.setItem(STORAGE.start, String(periodStart));
     else localStorage.removeItem(STORAGE.start);
+    if (lastReset) localStorage.setItem(STORAGE.reset, String(lastReset));
+    else localStorage.removeItem(STORAGE.reset);
   }
 
   function savePos() {
@@ -73,10 +89,7 @@
 
   function defaultPos() {
     const w = ui.offsetWidth || 220;
-    return {
-      left: window.innerWidth - w - 56,
-      top: 72
-    };
+    return { left: window.innerWidth - w - 56, top: 72 };
   }
 
   function formatTime(sec) {
@@ -84,6 +97,11 @@
     const m = String(Math.floor(sec / 60)).padStart(2, '0');
     const s = String(sec % 60).padStart(2, '0');
     return `${m}:${s}`;
+  }
+
+  function formatClock(ts) {
+    if (!ts) return '—';
+    return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }
 
   function getRemaining() {
@@ -107,14 +125,16 @@
     remaining = getRemaining();
     countEl.textContent = String(followCount);
     totalEl.textContent = String(totalFollows);
+    firstFollowEl.textContent = formatClock(periodStart);
+    resetTimeEl.textContent = formatClock(lastReset);
     timerEl.textContent = formatTime(remaining);
 
-    if (remaining > 0) {
+    if (remaining > 0 && followCount >= MAX_PER_PERIOD) {
+      statusEl.textContent = 'Cap reached — wait for timer';
+      statusEl.style.color = '#ff9800';
+    } else if (remaining > 0) {
       statusEl.textContent = 'Counting down';
       statusEl.style.color = '#4CAF50';
-    } else if (followCount > 0) {
-      statusEl.textContent = 'Idle — follow again to restart';
-      statusEl.style.color = '#ff9800';
     } else {
       statusEl.textContent = 'Waiting for first follow';
       statusEl.style.color = '#999';
@@ -141,6 +161,7 @@
       stopTimerLoop();
       periodStart = 0;
       followCount = 0;
+      countedUsers = [];
       save();
       updateUI();
     }
@@ -156,61 +177,139 @@
 
   function recordFollow(user) {
     readState();
-    totalFollows++;
 
-    if (!periodStart || getRemaining() <= 0) {
-      periodStart = Date.now();
-      followCount = 1;
-    } else {
-      followCount++;
+    if (getRemaining() <= 0) {
+      periodStart = 0;
+      followCount = 0;
+      countedUsers = [];
     }
+
+    const key = (user || '').toLowerCase();
+    if (key && countedUsers.includes(key)) {
+      console.log(`[Follow Timer] Skip ${user}: already counted this period`);
+      return;
+    }
+    if (followCount >= MAX_PER_PERIOD) {
+      console.log(`[Follow Timer] Skip ${user}: already at ${MAX_PER_PERIOD}`);
+      updateUI();
+      startTimerLoop();
+      return;
+    }
+
+    if (!periodStart) periodStart = Date.now();
+    followCount++;
+    totalFollows++;
+    if (key) countedUsers.push(key);
 
     save();
     updateUI();
     startTimerLoop();
-    console.log(`[Follow Timer] Followed ${user || '(unknown)'} — period ${followCount}, total ${totalFollows}`);
+    console.log(`[Follow Timer] Followed ${user || '(unknown)'} — period ${followCount}/${MAX_PER_PERIOD}, total ${totalFollows}`);
+  }
+
+  function cellFor(el) {
+    return el.closest('[data-testid="UserCell"]') ||
+      el.closest('[data-testid="cellInnerDiv"]') ||
+      el.closest('article') ||
+      document.body;
+  }
+
+  function isPendingButton(btn) {
+    if (!btn) return false;
+    const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+    const testid = (btn.getAttribute('data-testid') || '').toLowerCase();
+    const text = (btn.textContent || '').trim().toLowerCase();
+    return (
+      text === 'pending' ||
+      label.includes('pending') ||
+      label.includes('requested') ||
+      testid.endsWith('-cancel') ||
+      testid.includes('pending')
+    );
   }
 
   function isFollowButton(btn) {
     if (!btn || btn.tagName !== 'BUTTON') return false;
     const label = (btn.getAttribute('aria-label') || '').toLowerCase();
     const testid = (btn.getAttribute('data-testid') || '').toLowerCase();
+    const text = (btn.textContent || '').trim().toLowerCase();
 
-    if (label.includes('unfollow') || label.startsWith('following @') || testid.includes('unfollow')) {
-      return false;
-    }
+    if (
+      label.includes('unfollow') ||
+      label.startsWith('following @') ||
+      testid.includes('unfollow') ||
+      text === 'following' ||
+      text === 'unfollow' ||
+      isPendingButton(btn)
+    ) return false;
 
     return (
       label.startsWith('follow @') ||
       label.includes('follow back @') ||
       testid === 'follow' ||
-      /follow$/i.test(testid)
+      /-\d*-follow$/.test(testid) ||
+      testid.endsWith('-follow') ||
+      text === 'follow' ||
+      text === 'follow back'
     );
   }
 
   function usernameFromButton(btn) {
     const label = btn.getAttribute('aria-label') || '';
     const m = label.match(/@([A-Za-z0-9_]+)/);
-    return m ? m[1] : '';
+    if (m) return m[1];
+    const href = cellFor(btn).querySelector('a[href^="/"]');
+    if (href) {
+      const u = href.getAttribute('href').slice(1).split('/')[0];
+      if (u && !['home', 'explore', 'search', 'i'].includes(u)) return u;
+    }
+    return '';
+  }
+
+  function followSucceeded(btn) {
+    const root = cellFor(btn);
+    const buttons = [btn, ...root.querySelectorAll('button')];
+    if (buttons.some(isPendingButton)) return true;
+
+    const labels = buttons.map(b => (b.getAttribute('aria-label') || '').toLowerCase());
+    const texts = buttons.map(b => (b.textContent || '').trim().toLowerCase());
+    const testids = buttons.map(b => (b.getAttribute('data-testid') || '').toLowerCase());
+
+    return labels.some(l => l.startsWith('following @') || l.includes('unfollow')) ||
+      texts.some(t => t === 'following' || t === 'unfollow') ||
+      testids.some(t => t.includes('unfollow'));
   }
 
   document.addEventListener('click', (e) => {
-    const btn = e.target.closest('button');
+    const btn = e.target.closest('button[aria-label], button[data-testid$="-follow"]');
     if (!isFollowButton(btn)) return;
 
     const user = usernameFromButton(btn);
+    const key = (user || Math.random().toString()).toLowerCase();
+
+    readState();
+    if (getRemaining() > 0 && followCount >= MAX_PER_PERIOD) {
+      console.log(`[Follow Timer] Skip ${user}: cap ${MAX_PER_PERIOD} already reached`);
+      return;
+    }
+    if (user && countedUsers.includes(user.toLowerCase())) {
+      console.log(`[Follow Timer] Skip ${user}: already counted`);
+      return;
+    }
+    if (pendingClicks.has(key)) return;
+    pendingClicks.add(key);
 
     setTimeout(() => {
-      const label = (btn.getAttribute('aria-label') || '').toLowerCase();
-      const testid = (btn.getAttribute('data-testid') || '').toLowerCase();
-      const nowFollowing =
-        label.startsWith('following @') ||
-        label.includes('unfollow') ||
-        testid.includes('unfollow') ||
-        !document.body.contains(btn);
-
-      if (nowFollowing) recordFollow(user);
-    }, 700);
+      try {
+        if (!followSucceeded(btn)) {
+          console.log(`[Follow Timer] Skip ${user}: not actually following`);
+          return;
+        }
+        recordFollow(user);
+      } finally {
+        pendingClicks.delete(key);
+      }
+    }, 900);
   }, true);
 
   const ui = document.createElement('div');
@@ -243,6 +342,8 @@
       <div>This period: <b id="ft-count">0</b></div>
       <div>Total tracked: <b id="ft-total">0</b></div>
       <div id="ft-status" style="font-size:12px;color:#999;margin-top:4px;">Waiting for first follow</div>
+      <div style="margin-top:6px;">First follow: <b id="ft-first-follow">—</b></div>
+      <div>Last reset: <b id="ft-reset-time">—</b></div>
     </div>
     <button id="ft-reset" style="margin-top:8px;padding:6px 8px;width:100%;border:none;border-radius:6px;background:#2196F3;color:#fff;cursor:pointer;font-weight:bold;">Reset</button>
   `;
@@ -252,6 +353,8 @@
   const detailsEl = ui.querySelector('#ft-details');
   const countEl = ui.querySelector('#ft-count');
   const totalEl = ui.querySelector('#ft-total');
+  const firstFollowEl = ui.querySelector('#ft-first-follow');
+  const resetTimeEl = ui.querySelector('#ft-reset-time');
   const timerEl = ui.querySelector('#ft-timer');
   const statusEl = ui.querySelector('#ft-status');
   const resetEl = ui.querySelector('#ft-reset');
@@ -270,6 +373,8 @@
     followCount = 0;
     totalFollows = 0;
     periodStart = 0;
+    lastReset = Date.now();
+    countedUsers = [];
     stopTimerLoop();
     save();
     updateUI();
@@ -302,7 +407,6 @@
     if (e.key === STORAGE.pos) return;
     syncFromStorage();
   });
-
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) syncFromStorage();
   });
@@ -323,6 +427,7 @@
   else if (periodStart) {
     periodStart = 0;
     followCount = 0;
+    countedUsers = [];
     save();
   }
   updateUI();
