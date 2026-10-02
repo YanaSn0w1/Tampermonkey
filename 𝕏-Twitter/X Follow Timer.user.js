@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         𝕏 Follow Timer
 // @namespace    http://tampermonkey.net/
-// @version      1.0.9
+// @version      1.3.0
 // @author       YanaHeat
 // @match        https://x.com/*
 // @match        https://twitter.com/*
@@ -17,10 +17,12 @@
   if (/\/i\/report\//.test(location.pathname)) return;
 
   const COOLDOWN_MS = 15 * 60 * 1000;
+  const DAY_MS = 24 * 60 * 60 * 1000;
   const MAX_PER_PERIOD = 15;
   const STORAGE = {
     count: 'ft_count',
     start: 'ft_periodStart',
+    first: 'ft_firstFollow',
     total: 'ft_total',
     mini: 'ft_minimized',
     pos: 'ft_pos',
@@ -30,6 +32,7 @@
 
   let followCount = 0;
   let periodStart = 0;
+  let firstFollow = 0;
   let lastReset = 0;
   let totalFollows = 0;
   let minimized = false;
@@ -41,6 +44,7 @@
   function readState() {
     followCount = parseInt(localStorage.getItem(STORAGE.count) || '0', 10);
     periodStart = parseInt(localStorage.getItem(STORAGE.start) || '0', 10);
+    firstFollow = parseInt(localStorage.getItem(STORAGE.first) || '0', 10);
     lastReset = parseInt(localStorage.getItem(STORAGE.reset) || '0', 10);
     totalFollows = parseInt(localStorage.getItem(STORAGE.total) || '0', 10);
     minimized = localStorage.getItem(STORAGE.mini) === 'true';
@@ -59,6 +63,8 @@
     localStorage.setItem(STORAGE.users, JSON.stringify(countedUsers));
     if (periodStart) localStorage.setItem(STORAGE.start, String(periodStart));
     else localStorage.removeItem(STORAGE.start);
+    if (firstFollow) localStorage.setItem(STORAGE.first, String(firstFollow));
+    else localStorage.removeItem(STORAGE.first);
     if (lastReset) localStorage.setItem(STORAGE.reset, String(lastReset));
     else localStorage.removeItem(STORAGE.reset);
   }
@@ -109,6 +115,14 @@
     return Math.max(0, Math.floor((periodStart + COOLDOWN_MS - Date.now()) / 1000));
   }
 
+  function expireFirstFollowIfNeeded() {
+    if (!firstFollow) return;
+    if (Date.now() - firstFollow >= DAY_MS) {
+      firstFollow = 0;
+      save();
+    }
+  }
+
   function applyMinimized() {
     detailsEl.style.display = minimized ? 'none' : 'block';
     titleEl.style.display = minimized ? 'none' : 'block';
@@ -122,10 +136,11 @@
   }
 
   function updateUI() {
+    expireFirstFollowIfNeeded();
     remaining = getRemaining();
     countEl.textContent = String(followCount);
     totalEl.textContent = String(totalFollows);
-    firstFollowEl.textContent = formatClock(periodStart);
+    firstFollowEl.textContent = formatClock(firstFollow);
     resetTimeEl.textContent = formatClock(lastReset);
     timerEl.textContent = formatTime(remaining);
 
@@ -156,6 +171,7 @@
 
   function tick() {
     remaining = getRemaining();
+    expireFirstFollowIfNeeded();
     updateUI();
     if (periodStart && remaining <= 0) {
       stopTimerLoop();
@@ -169,6 +185,7 @@
 
   function syncFromStorage() {
     readState();
+    expireFirstFollowIfNeeded();
     applyMinimized();
     updateUI();
     if (getRemaining() > 0) startTimerLoop();
@@ -177,6 +194,7 @@
 
   function recordFollow(user) {
     readState();
+    expireFirstFollowIfNeeded();
 
     if (getRemaining() <= 0) {
       periodStart = 0;
@@ -196,6 +214,7 @@
       return;
     }
 
+    if (!firstFollow) firstFollow = Date.now();
     if (!periodStart) periodStart = Date.now();
     followCount++;
     totalFollows++;
@@ -423,6 +442,7 @@
   } catch (e) {}
   applyPos(start.left, start.top);
 
+  expireFirstFollowIfNeeded();
   if (getRemaining() > 0) startTimerLoop();
   else if (periodStart) {
     periodStart = 0;
