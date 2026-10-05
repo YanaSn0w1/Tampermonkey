@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         𝕏 Follow Timer
 // @namespace    http://tampermonkey.net/
-// @version      1.3.0
+// @version      1.4.1
 // @author       YanaHeat
 // @match        https://x.com/*
 // @match        https://twitter.com/*
@@ -26,14 +26,12 @@
     total: 'ft_total',
     mini: 'ft_minimized',
     pos: 'ft_pos',
-    users: 'ft_users',
-    reset: 'ft_lastReset'
+    users: 'ft_users'
   };
 
   let followCount = 0;
   let periodStart = 0;
   let firstFollow = 0;
-  let lastReset = 0;
   let totalFollows = 0;
   let minimized = false;
   let remaining = 0;
@@ -45,7 +43,6 @@
     followCount = parseInt(localStorage.getItem(STORAGE.count) || '0', 10);
     periodStart = parseInt(localStorage.getItem(STORAGE.start) || '0', 10);
     firstFollow = parseInt(localStorage.getItem(STORAGE.first) || '0', 10);
-    lastReset = parseInt(localStorage.getItem(STORAGE.reset) || '0', 10);
     totalFollows = parseInt(localStorage.getItem(STORAGE.total) || '0', 10);
     minimized = localStorage.getItem(STORAGE.mini) === 'true';
     try {
@@ -65,8 +62,6 @@
     else localStorage.removeItem(STORAGE.start);
     if (firstFollow) localStorage.setItem(STORAGE.first, String(firstFollow));
     else localStorage.removeItem(STORAGE.first);
-    if (lastReset) localStorage.setItem(STORAGE.reset, String(lastReset));
-    else localStorage.removeItem(STORAGE.reset);
   }
 
   function savePos() {
@@ -141,7 +136,6 @@
     countEl.textContent = String(followCount);
     totalEl.textContent = String(totalFollows);
     firstFollowEl.textContent = formatClock(firstFollow);
-    resetTimeEl.textContent = formatClock(lastReset);
     timerEl.textContent = formatTime(remaining);
 
     if (remaining > 0 && followCount >= MAX_PER_PERIOD) {
@@ -362,7 +356,6 @@
       <div>Total tracked: <b id="ft-total">0</b></div>
       <div id="ft-status" style="font-size:12px;color:#999;margin-top:4px;">Waiting for first follow</div>
       <div style="margin-top:6px;">First follow: <b id="ft-first-follow">—</b></div>
-      <div>Last reset: <b id="ft-reset-time">—</b></div>
     </div>
     <button id="ft-reset" style="margin-top:8px;padding:6px 8px;width:100%;border:none;border-radius:6px;background:#2196F3;color:#fff;cursor:pointer;font-weight:bold;">Reset</button>
   `;
@@ -373,7 +366,6 @@
   const countEl = ui.querySelector('#ft-count');
   const totalEl = ui.querySelector('#ft-total');
   const firstFollowEl = ui.querySelector('#ft-first-follow');
-  const resetTimeEl = ui.querySelector('#ft-reset-time');
   const timerEl = ui.querySelector('#ft-timer');
   const statusEl = ui.querySelector('#ft-status');
   const resetEl = ui.querySelector('#ft-reset');
@@ -392,7 +384,6 @@
     followCount = 0;
     totalFollows = 0;
     periodStart = 0;
-    lastReset = Date.now();
     countedUsers = [];
     stopTimerLoop();
     save();
