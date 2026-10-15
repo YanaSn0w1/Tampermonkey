@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         𝕏 Follow Timer
 // @namespace    http://tampermonkey.net/
-// @version      1.5.0
+// @version      1.6.2
 // @author       YanaHeat
 // @match        https://x.com/*
 // @match        https://twitter.com/*
@@ -23,7 +23,6 @@
     count: 'ft_count',
     start: 'ft_periodStart',
     first: 'ft_firstFollow',
-    total: 'ft_total',
     day: 'ft_day',
     mini: 'ft_minimized',
     pos: 'ft_pos',
@@ -33,7 +32,6 @@
   let followCount = 0;
   let periodStart = 0;
   let firstFollow = 0;
-  let totalFollows = 0;
   let dayTotal = 0;
   let minimized = false;
   let remaining = 0;
@@ -45,7 +43,6 @@
     followCount = parseInt(localStorage.getItem(STORAGE.count) || '0', 10);
     periodStart = parseInt(localStorage.getItem(STORAGE.start) || '0', 10);
     firstFollow = parseInt(localStorage.getItem(STORAGE.first) || '0', 10);
-    totalFollows = parseInt(localStorage.getItem(STORAGE.total) || '0', 10);
     dayTotal = parseInt(localStorage.getItem(STORAGE.day) || '0', 10);
     minimized = localStorage.getItem(STORAGE.mini) === 'true';
     try {
@@ -58,7 +55,6 @@
 
   function save() {
     localStorage.setItem(STORAGE.count, String(followCount));
-    localStorage.setItem(STORAGE.total, String(totalFollows));
     localStorage.setItem(STORAGE.day, String(dayTotal));
     localStorage.setItem(STORAGE.mini, String(minimized));
     localStorage.setItem(STORAGE.users, JSON.stringify(countedUsers));
@@ -75,7 +71,7 @@
 
   function clampPos(left, top) {
     const pad = 8;
-    const w = ui.offsetWidth || 220;
+    const w = ui.offsetWidth || 168;
     const h = ui.offsetHeight || 40;
     const maxL = Math.max(pad, window.innerWidth - w - pad);
     const maxT = Math.max(pad, window.innerHeight - h - pad);
@@ -93,7 +89,7 @@
   }
 
   function defaultPos() {
-    const w = ui.offsetWidth || 220;
+    const w = ui.offsetWidth || 168;
     return { left: window.innerWidth - w - 56, top: 72 };
   }
 
@@ -130,13 +126,13 @@
   function applyMinimized() {
     detailsEl.style.display = minimized ? 'none' : 'block';
     titleEl.style.display = minimized ? 'none' : 'block';
-    resetEl.style.display = minimized ? 'none' : 'block';
     toggleEl.textContent = minimized ? '+' : '−';
     toggleEl.title = minimized ? 'Maximize' : 'Minimize';
-    ui.style.minWidth = minimized ? '0' : '220px';
-    ui.style.padding = minimized ? '6px 8px' : '12px 14px';
+    ui.style.width = minimized ? 'auto' : '168px';
+    ui.style.minWidth = minimized ? '0' : '168px';
+    ui.style.padding = minimized ? '6px 8px' : '8px 10px';
     timerEl.style.fontSize = minimized ? '16px' : '22px';
-    timerEl.style.margin = minimized ? '0 22px 0 0' : '6px 0';
+    timerEl.style.margin = minimized ? '0 22px 0 0' : '2px 0';
   }
 
   function updateUI() {
@@ -144,19 +140,18 @@
     remaining = getRemaining();
     countEl.textContent = String(followCount);
     dayEl.textContent = String(dayTotal);
-    totalEl.textContent = String(totalFollows);
     firstFollowEl.textContent = formatClock(firstFollow);
     timerEl.textContent = formatTime(remaining);
 
-    if (remaining > 0 && followCount >= MAX_PER_PERIOD) {
-      statusEl.textContent = 'Cap reached — wait for timer';
-      statusEl.style.color = '#ff9800';
-    } else if (remaining > 0) {
+    if (followCount >= MAX_PER_PERIOD) {
+      statusEl.textContent = 'Cap reached';
+      statusEl.style.color = '#f44336';
+    } else if (followCount >= 1) {
       statusEl.textContent = 'Counting down';
-      statusEl.style.color = '#4CAF50';
+      statusEl.style.color = '#ff9800';
     } else {
       statusEl.textContent = 'Waiting for first follow';
-      statusEl.style.color = '#999';
+      statusEl.style.color = '#4CAF50';
     }
   }
 
@@ -225,13 +220,12 @@
     if (!periodStart) periodStart = Date.now();
     followCount++;
     dayTotal++;
-    totalFollows++;
     if (key) countedUsers.push(key);
 
     save();
     updateUI();
     startTimerLoop();
-    console.log(`[Follow Timer] Followed ${user || '(unknown)'} — period ${followCount}/${MAX_PER_PERIOD}, day ${dayTotal}, total ${totalFollows}`);
+    console.log(`[Follow Timer] Followed ${user || '(unknown)'} — period ${followCount}/${MAX_PER_PERIOD}, day ${dayTotal}`);
   }
 
   function cellFor(el) {
@@ -346,33 +340,36 @@
     'z-index:2147483647',
     'background:#111',
     'color:#fff',
-    'padding:12px 14px',
+    'padding:8px 10px',
     'border:2px solid #000',
     'border-radius:10px',
     'font-family:sans-serif',
     'font-size:13px',
-    'min-width:220px',
+    'line-height:1.3',
+    'width:168px',
+    'min-width:168px',
+    'max-width:168px',
+    'box-sizing:border-box',
     'box-shadow:0 4px 12px rgba(0,0,0,0.35)',
     'cursor:move',
-    'user-select:none'
+    'user-select:none',
+    'overflow:hidden'
   ].join(';');
 
   ui.innerHTML = `
     <button id="ft-toggle" title="Minimize" style="
-      position:absolute;top:4px;right:4px;width:22px;height:22px;
+      position:absolute;top:4px;right:4px;width:20px;height:20px;
       border:none;border-radius:4px;background:#333;color:#fff;
-      font-size:16px;line-height:20px;cursor:pointer;padding:0;
+      font-size:14px;line-height:18px;cursor:pointer;padding:0;
     ">−</button>
-    <div id="ft-title" style="font-weight:bold;font-size:14px;margin-bottom:6px;padding-right:24px;">𝕏 Follow Timer</div>
-    <div id="ft-timer" style="font-size:22px;font-weight:bold;margin:6px 0;">00:00</div>
-    <div id="ft-details">
+    <div id="ft-title" style="font-weight:bold;font-size:13px;margin-bottom:2px;padding-right:22px;white-space:nowrap;">𝕏 Follow Timer</div>
+    <div id="ft-timer" style="font-size:22px;font-weight:bold;margin:2px 0;line-height:1;">00:00</div>
+    <div id="ft-details" style="line-height:1.35;white-space:nowrap;">
       <div>This period: <b id="ft-count">0</b></div>
       <div>Day total: <b id="ft-day">0</b></div>
-      <div>Total tracked: <b id="ft-total">0</b></div>
-      <div id="ft-status" style="font-size:12px;color:#999;margin-top:4px;">Waiting for first follow</div>
-      <div style="margin-top:6px;">First follow: <b id="ft-first-follow">—</b></div>
+      <div id="ft-status" style="font-size:12px;color:#4CAF50;margin-top:1px;">Waiting for first follow</div>
+      <div style="margin-top:1px;">First follow: <b id="ft-first-follow">—</b></div>
     </div>
-    <button id="ft-reset" style="margin-top:8px;padding:6px 8px;width:100%;border:none;border-radius:6px;background:#2196F3;color:#fff;cursor:pointer;font-weight:bold;">Reset</button>
   `;
   document.documentElement.appendChild(ui);
 
@@ -380,11 +377,9 @@
   const detailsEl = ui.querySelector('#ft-details');
   const countEl = ui.querySelector('#ft-count');
   const dayEl = ui.querySelector('#ft-day');
-  const totalEl = ui.querySelector('#ft-total');
   const firstFollowEl = ui.querySelector('#ft-first-follow');
   const timerEl = ui.querySelector('#ft-timer');
   const statusEl = ui.querySelector('#ft-status');
-  const resetEl = ui.querySelector('#ft-reset');
   const toggleEl = ui.querySelector('#ft-toggle');
 
   toggleEl.onclick = (e) => {
@@ -393,17 +388,6 @@
     save();
     applyMinimized();
     savePos();
-  };
-
-  resetEl.onclick = (e) => {
-    e.stopPropagation();
-    followCount = 0;
-    totalFollows = 0;
-    periodStart = 0;
-    countedUsers = [];
-    stopTimerLoop();
-    save();
-    updateUI();
   };
 
   let dragging = false, dx = 0, dy = 0;
