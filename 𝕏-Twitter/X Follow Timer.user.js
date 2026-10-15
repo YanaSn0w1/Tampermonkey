@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         𝕏 Follow Timer
 // @namespace    http://tampermonkey.net/
-// @version      1.4.1
+// @version      1.5.0
 // @author       YanaHeat
 // @match        https://x.com/*
 // @match        https://twitter.com/*
@@ -24,6 +24,7 @@
     start: 'ft_periodStart',
     first: 'ft_firstFollow',
     total: 'ft_total',
+    day: 'ft_day',
     mini: 'ft_minimized',
     pos: 'ft_pos',
     users: 'ft_users'
@@ -33,6 +34,7 @@
   let periodStart = 0;
   let firstFollow = 0;
   let totalFollows = 0;
+  let dayTotal = 0;
   let minimized = false;
   let remaining = 0;
   let timerInt = null;
@@ -44,6 +46,7 @@
     periodStart = parseInt(localStorage.getItem(STORAGE.start) || '0', 10);
     firstFollow = parseInt(localStorage.getItem(STORAGE.first) || '0', 10);
     totalFollows = parseInt(localStorage.getItem(STORAGE.total) || '0', 10);
+    dayTotal = parseInt(localStorage.getItem(STORAGE.day) || '0', 10);
     minimized = localStorage.getItem(STORAGE.mini) === 'true';
     try {
       countedUsers = JSON.parse(localStorage.getItem(STORAGE.users) || '[]');
@@ -56,6 +59,7 @@
   function save() {
     localStorage.setItem(STORAGE.count, String(followCount));
     localStorage.setItem(STORAGE.total, String(totalFollows));
+    localStorage.setItem(STORAGE.day, String(dayTotal));
     localStorage.setItem(STORAGE.mini, String(minimized));
     localStorage.setItem(STORAGE.users, JSON.stringify(countedUsers));
     if (periodStart) localStorage.setItem(STORAGE.start, String(periodStart));
@@ -111,9 +115,14 @@
   }
 
   function expireFirstFollowIfNeeded() {
-    if (!firstFollow) return;
-    if (Date.now() - firstFollow >= DAY_MS) {
+    if (firstFollow && Date.now() - firstFollow >= DAY_MS) {
       firstFollow = 0;
+      dayTotal = 0;
+      save();
+      return;
+    }
+    if (!firstFollow && dayTotal) {
+      dayTotal = 0;
       save();
     }
   }
@@ -134,6 +143,7 @@
     expireFirstFollowIfNeeded();
     remaining = getRemaining();
     countEl.textContent = String(followCount);
+    dayEl.textContent = String(dayTotal);
     totalEl.textContent = String(totalFollows);
     firstFollowEl.textContent = formatClock(firstFollow);
     timerEl.textContent = formatTime(remaining);
@@ -208,16 +218,20 @@
       return;
     }
 
-    if (!firstFollow) firstFollow = Date.now();
+    if (!firstFollow) {
+      firstFollow = Date.now();
+      dayTotal = 0;
+    }
     if (!periodStart) periodStart = Date.now();
     followCount++;
+    dayTotal++;
     totalFollows++;
     if (key) countedUsers.push(key);
 
     save();
     updateUI();
     startTimerLoop();
-    console.log(`[Follow Timer] Followed ${user || '(unknown)'} — period ${followCount}/${MAX_PER_PERIOD}, total ${totalFollows}`);
+    console.log(`[Follow Timer] Followed ${user || '(unknown)'} — period ${followCount}/${MAX_PER_PERIOD}, day ${dayTotal}, total ${totalFollows}`);
   }
 
   function cellFor(el) {
@@ -353,6 +367,7 @@
     <div id="ft-timer" style="font-size:22px;font-weight:bold;margin:6px 0;">00:00</div>
     <div id="ft-details">
       <div>This period: <b id="ft-count">0</b></div>
+      <div>Day total: <b id="ft-day">0</b></div>
       <div>Total tracked: <b id="ft-total">0</b></div>
       <div id="ft-status" style="font-size:12px;color:#999;margin-top:4px;">Waiting for first follow</div>
       <div style="margin-top:6px;">First follow: <b id="ft-first-follow">—</b></div>
@@ -364,6 +379,7 @@
   const titleEl = ui.querySelector('#ft-title');
   const detailsEl = ui.querySelector('#ft-details');
   const countEl = ui.querySelector('#ft-count');
+  const dayEl = ui.querySelector('#ft-day');
   const totalEl = ui.querySelector('#ft-total');
   const firstFollowEl = ui.querySelector('#ft-first-follow');
   const timerEl = ui.querySelector('#ft-timer');
