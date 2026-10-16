@@ -1,6 +1,6 @@
 # [X Follow Timer](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/X%20Follow%20Timer.user.js "X follow Timer") ⬅️
 # Optional: [PayPal-Donations](https://www.paypal.com/donate/?hosted_button_id=9LWWH273HEVC4 "Donate to YanaHeat") ⬅️
-<img width="161" height="129" alt="chrome_ze4PP4PEbQ" src="https://github.com/user-attachments/assets/7156ba6a-4f4e-4d3d-84e6-0b50eea6b732" /> <img width="161" height="128" alt="chrome_IanOGYz9R8" src="https://github.com/user-attachments/assets/fdef1f74-d032-4878-a26b-fce9cba084df" /> <img width="162" height="129" alt="chrome_6h54N8Ax62" src="https://github.com/user-attachments/assets/22fa5a30-ff1d-471a-ae80-9269288f538c" />
+<img width="161" height="129" alt="chrome_ze4PP4PEbQ" src="https://github.com/user-attachments/assets/7156ba6a-4f4e-4d3d-84e6-0b50eea6b732" /> <img width="161" height="129" alt="chrome_5fGw01kYjz" src="https://github.com/user-attachments/assets/e5854b44-1b35-4dc1-b40d-a42fc712a40a" />
 
 # [𝕏 Mutual Manager](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/%F0%9D%95%8F%20Mutual%20Manager.user.js "𝕏 Mutual Manager") ⬅️
 # Optional: [PayPal-Donations](https://www.paypal.com/donate/?hosted_button_id=9LWWH273HEVC4 "Donate to YanaHeat") ⬅️
