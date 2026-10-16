@@ -1,6 +1,7 @@
 # [X Follow Timer](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/X%20Follow%20Timer.user.js "X follow Timer") ⬅️
 # Optional: [PayPal-Donations](https://www.paypal.com/donate/?hosted_button_id=9LWWH273HEVC4 "Donate to YanaHeat") ⬅️
 <img width="161" height="129" alt="firefox_wWN9HTAL1s" src="https://github.com/user-attachments/assets/917871c9-443c-4d1d-92ac-ba0aa6c3a8b6" />
+<img width="161" height="128" alt="chrome_340PNSnmxX" src="https://github.com/user-attachments/assets/42b0d60d-6014-4f2a-83ad-6830a59ee689" />
 <img width="161" height="129" alt="chrome_5fGw01kYjz" src="https://github.com/user-attachments/assets/e5854b44-1b35-4dc1-b40d-a42fc712a40a" />
 
 # [𝕏 Mutual Manager](https://github.com/YanaSn0w1/Tampermonkey/blob/main/%F0%9D%95%8F-Twitter/%F0%9D%95%8F%20Mutual%20Manager.user.js "𝕏 Mutual Manager") ⬅️
