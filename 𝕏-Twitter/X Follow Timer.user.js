@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         𝕏 Follow Timer
 // @namespace    http://tampermonkey.net/
-// @version      1.6.2
+// @version      1.6.3
 // @author       YanaHeat
 // @match        https://x.com/*
 // @match        https://twitter.com/*
@@ -123,6 +123,17 @@
     }
   }
 
+  function clearPeriodIfExpired() {
+    if (periodStart && getRemaining() <= 0) {
+      periodStart = 0;
+      followCount = 0;
+      countedUsers = [];
+      save();
+      return true;
+    }
+    return false;
+  }
+
   function applyMinimized() {
     detailsEl.style.display = minimized ? 'none' : 'block';
     titleEl.style.display = minimized ? 'none' : 'block';
@@ -130,6 +141,7 @@
     toggleEl.title = minimized ? 'Maximize' : 'Minimize';
     ui.style.width = minimized ? 'auto' : '168px';
     ui.style.minWidth = minimized ? '0' : '168px';
+    ui.style.maxWidth = minimized ? 'none' : '168px';
     ui.style.padding = minimized ? '6px 8px' : '8px 10px';
     timerEl.style.fontSize = minimized ? '16px' : '22px';
     timerEl.style.margin = minimized ? '0 22px 0 0' : '2px 0';
@@ -145,13 +157,13 @@
 
     if (followCount >= MAX_PER_PERIOD) {
       statusEl.textContent = 'Cap reached';
-      statusEl.style.color = '#f44336';
+      statusEl.style.color = '#4CAF50';
     } else if (followCount >= 1) {
       statusEl.textContent = 'Counting down';
       statusEl.style.color = '#ff9800';
     } else {
       statusEl.textContent = 'Waiting for first follow';
-      statusEl.style.color = '#4CAF50';
+      statusEl.style.color = '#f44336';
     }
   }
 
@@ -171,20 +183,18 @@
   function tick() {
     remaining = getRemaining();
     expireFirstFollowIfNeeded();
-    updateUI();
-    if (periodStart && remaining <= 0) {
+    if (clearPeriodIfExpired()) {
       stopTimerLoop();
-      periodStart = 0;
-      followCount = 0;
-      countedUsers = [];
-      save();
-      updateUI();
     }
+    updateUI();
   }
 
   function syncFromStorage() {
     readState();
     expireFirstFollowIfNeeded();
+    if (clearPeriodIfExpired()) {
+      stopTimerLoop();
+    }
     applyMinimized();
     updateUI();
     if (getRemaining() > 0) startTimerLoop();
@@ -194,6 +204,7 @@
   function recordFollow(user) {
     readState();
     expireFirstFollowIfNeeded();
+    clearPeriodIfExpired();
 
     if (getRemaining() <= 0) {
       periodStart = 0;
@@ -309,6 +320,7 @@
     const key = (user || Math.random().toString()).toLowerCase();
 
     readState();
+    clearPeriodIfExpired();
     if (getRemaining() > 0 && followCount >= MAX_PER_PERIOD) {
       console.log(`[Follow Timer] Skip ${user}: cap ${MAX_PER_PERIOD} already reached`);
       return;
@@ -367,7 +379,7 @@
     <div id="ft-details" style="line-height:1.35;white-space:nowrap;">
       <div>This period: <b id="ft-count">0</b></div>
       <div>Day total: <b id="ft-day">0</b></div>
-      <div id="ft-status" style="font-size:12px;color:#4CAF50;margin-top:1px;">Waiting for first follow</div>
+      <div id="ft-status" style="font-size:12px;color:#f44336;margin-top:1px;">Waiting for first follow</div>
       <div style="margin-top:1px;">First follow: <b id="ft-first-follow">—</b></div>
     </div>
   `;
@@ -434,12 +446,7 @@
   applyPos(start.left, start.top);
 
   expireFirstFollowIfNeeded();
+  clearPeriodIfExpired();
   if (getRemaining() > 0) startTimerLoop();
-  else if (periodStart) {
-    periodStart = 0;
-    followCount = 0;
-    countedUsers = [];
-    save();
-  }
   updateUI();
 })();
