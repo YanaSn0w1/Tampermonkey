@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         𝕏 Mutual Manager
 // @namespace    http://tampermonkey.net/
-// @version      1.1.2
+// @version      1.1.4
 // @author       YanaHeat
 // @match        https://x.com/*follow*
 // @grant        none
@@ -565,9 +565,16 @@
 
     modeLine.textContent = 'Mode: Unfollow non-mutuals + bots';
     actionLine.innerHTML = `Unfollows: <span id="action-count">0/50</span><span id="timer"></span>`;
+
+    // Total Unfollows line (inserted between Unfollows and Scan)
+    const totalLine = document.createElement('div');
+    totalLine.innerHTML = `Total Unfollows: <span id="total-unfollows">0</span>`;
+    ui.insertBefore(totalLine, scanLine);
+
     scanLine.innerHTML = `Scan: <span id="scan-count">0/60000</span> <span id="scan-timer">00:00:00</span>`;
 
     const actionCountSpan = document.getElementById('action-count');
+    const totalUnfollowsSpan = document.getElementById('total-unfollows');
     const timerSpan = document.getElementById('timer');
     const scanCountSpan = document.getElementById('scan-count');
     const scanTimerSpan = document.getElementById('scan-timer');
@@ -575,6 +582,7 @@
     let processed = new Set();
     let total = 0;
     let actionedInPeriod = 0;
+    let totalUnfollows = parseInt(localStorage.getItem('um_uf_total') || '0');
     let remainingTime = 0;
     let hasActioned = false;
     let timerInt = null;
@@ -587,6 +595,7 @@
     function loadState() {
       periodStart = parseInt(localStorage.getItem(storagePrefix + 'periodStart') || '0') || null;
       actionedInPeriod = parseInt(localStorage.getItem(storagePrefix + 'count') || '0');
+      totalUnfollows = parseInt(localStorage.getItem('um_uf_total') || '0');
       if (periodStart) {
         const elapsed = Date.now() - periodStart;
         if (elapsed < ACTION_CD) {
@@ -605,6 +614,7 @@
       if (periodStart) localStorage.setItem(storagePrefix + 'periodStart', periodStart);
       else localStorage.removeItem(storagePrefix + 'periodStart');
       localStorage.setItem(storagePrefix + 'count', actionedInPeriod);
+      localStorage.setItem('um_uf_total', totalUnfollows);
     }
 
     function startTimerFrom(sec) {
@@ -681,6 +691,7 @@
       const currentMaxScan = parseInt(localStorage.getItem('um_sc_max_scan')) || SC_MAX_UNFOLLOW;
 
       actionCountSpan.textContent = `${actionedInPeriod}/${currentMaxUnfollow}`;
+      totalUnfollowsSpan.textContent = totalUnfollows;
       if (hasActioned) {
         const h = String(Math.floor(remainingTime / 3600)).padStart(2, '0');
         const m = String(Math.floor((remainingTime % 3600) / 60)).padStart(2, '0');
@@ -746,7 +757,7 @@
       for (let cell of batch) {
         if (paused) break;
         if (actionedInPeriod >= UF_MAX_PER_PERIOD) {
-          paused = false;           // ← Fixed: stays in Running state so you can still pause
+          paused = false;
           running = true;
           manuallyPaused = false;
           updateStartButton();
@@ -796,11 +807,12 @@
           confirm.click();
           cell.style.border = '2px solid red';
           actionedInPeriod++;
+          totalUnfollows++;
           if (actionedInPeriod === 1) startNewTimer();
           updateUI();
           saveState();
           updateStartButton();
-          console.log(`Unfollowed ${user}: ${reasons.join(', ')}`);
+          console.log(`Unfollowed ${user}: ${reasons.join(', ')} | Total: ${totalUnfollows}`);
         } else {
           if (isRateLimited()) startNewTimer();
           cell.style.border = '2px solid orange';
@@ -862,7 +874,7 @@
     };
 
   } else {
-    // Follow Back mode
+    // Follow Back mode (unchanged)
     const followUnvEnabled = getFollowUnv();
     modeLine.textContent = `Mode: Follow Back (${followUnvEnabled ? 'All' : (isVerified ? 'Verified' : 'Verified')} Followers)`;
 
